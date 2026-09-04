@@ -4,7 +4,7 @@ Dokumen ini berisi rancangan pengembangan fitur, ide masa depan, dan rekam jejak
 
 ---
 
-## 🤖 Aturan untuk AI Agent & Kontributor (PENTING!)
+## Aturan (PENTING!)
 Setiap kali ada ide, rancangan, atau fitur baru yang ditambahkan ke dokumen ini ke depannya, **Agent WAJIB mematuhi hukum tata letak berikut:**
 1. **Klasifikasi Berdasarkan Prioritas:** Evaluasi dan masukkan ide baru ke bawah salah satu dari tiga kategori prioritas di bawah: **Prioritas 1 (Segera)**, **Prioritas 2 (Menengah)**, atau **Prioritas 3 (Jangka Panjang/Ekosistem)**.
 2. **Aturan Posisi ("Selalu setelah task done terakhir"):**
@@ -14,7 +14,7 @@ Setiap kali ada ide, rancangan, atau fitur baru yang ditambahkan ke dokumen ini 
 
 ---
 
-## 🏆 Fondasi Inti yang Sudah Selesai (Completed Core Milestones)
+## Fondasi Inti yang Sudah Selesai (Completed Core Milestones)
 
 Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan distabilkan (terverifikasi oleh 38 test suite lulus 100%):
 
@@ -37,7 +37,7 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 
 ---
 
-## 🚀 Prioritas 1: Segera (Mendesak & Bernilai Tinggi untuk Aplikasi Nyata)
+## Prioritas 1: Segera (Mendesak & Bernilai Tinggi untuk Aplikasi Nyata)
 *Fokus saat ini: Pemaketan (Packaging) Framework dan Mempercepat Siklus Pengembangan.*
 
 - [ ] **Distribusi PyOn-Py sebagai Package & CLI Tool:**
@@ -58,7 +58,7 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 
 ---
 
-## ⚡ Prioritas 2: Menengah (Developer Experience / DX & Kemampuan Inti)
+## Prioritas 2: Menengah (Developer Experience / DX & Kemampuan Inti)
 *Fokus pada peningakatan produktivitas pengembang, arsitektur data besar, dan kecepatan iterasi lokal.*
 
 - [ ] **Sistem Client Session HTTP Terpusat:**
@@ -70,7 +70,7 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 
 ---
 
-## 📦 Prioritas 3: Nanti (Ekosistem, Build System & Production Readiness)
+## Prioritas 3: Nanti (Ekosistem, Build System & Production Readiness)
 *Fokus jangka panjang untuk kesiapan penyampaian produksi berkecepatan tinggi dan kelengkapan infrastruktur perkakas pendukung.*
 
 - [ ] **Build System & Production Optimization (WASM):**
