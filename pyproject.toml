@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "pyon-py"
+version         = "0.1.0"
+description     = "Python VDOM Framework on Pyodide & WebAssembly"
+requires-python = ">=3.11"
+dependencies    = ["aiohttp>=3.9", "watchfiles>=0.21", "click>=8.0"]
+
+[project.scripts]
+pyon = "pyon.cli.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["pyon", "pyon.*"]
