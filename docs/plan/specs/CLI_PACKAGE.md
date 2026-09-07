@@ -45,7 +45,8 @@ CLI `pyon` dibangun menggunakan library `click`. Ini adalah satu-satunya antarmu
 | Perintah | Deskripsi | Aksi Internal |
 |---|---|---|
 | `pyon dev` | Menjalankan peladen pengembangan (*dev server*). | Menjalankan `asyncio.run(main())` dari modul `pyon.dev_server.server`. Otomatis mengaktifkan Hot Reload Inkremental. |
-| `pyon download` | Menjalankan proses pengunduhan dependensi *offline*. | Membungkus logika dari `download_pyodide.py` dan `download_packages.py`. Mengecek `pyon.toml` dan mengunduh roda (*wheels*) murni ke folder `.gitignore` (`packages_cache/`, `pyodide_local/`). |
+| `pyon add` | Menambah dependensi. | (Lihat [Spesifikasi Dependensi](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/DEPENDENCY_MANAGEMENT.md)) Mengunduh dan meregistrasi dependensi ke `pyon.toml`. |
+| `pyon download` | Menjalankan proses pengunduhan dependensi *offline*. | (Lihat [Spesifikasi Dependensi](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/DEPENDENCY_MANAGEMENT.md)) Mengecek `pyon.toml` dan mengunduh roda (*wheels*) murni ke folder `.gitignore` (`packages_cache/`, `pyodide_local/`). |
 | `pyon run <script>` | Menjalankan *custom script* yang didefinisikan. | Membaca blok `[scripts]` dari `pyon.toml` (mirip dengan `npm run`) dan mengeksekusinya via `subprocess.run()`. |
 
 ### 2.2 Perintah Lanjutan (Fase 5 - Ditunda)

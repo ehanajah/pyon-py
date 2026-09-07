@@ -2,6 +2,8 @@
 
 Dokumen ini mendeskripsikan arsitektur pengelolaan dependensi dua-lapisan (*two-layer dependency management*) untuk framework PyOn-Py, termasuk perintah CLI terkait, mekanisme di sisi browser, dan format konfigurasi.
 
+Terkait perancangan dasar paket dan perintah-perintah CLI lainnya, lihat [Spesifikasi CLI & Pemaketan Framework](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/CLI_PACKAGE.md).
+
 ---
 
 ## 1. Konsep Inti: Dua Lapisan Dependency

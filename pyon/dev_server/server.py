@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-import pyon
 import sys
 from pathlib import Path
 
 from aiohttp import web
 from watchfiles import awatch
+
+import pyon
 
 HOST = "localhost"
 PORT = 8000
@@ -45,7 +46,7 @@ PYON_PKG_DIR = Path(pyon.__file__).resolve().parent
 
 def _collect_py_files() -> list[str]:
     """
-    Scan framework dan PROJECT_ROOT secara rekursif, kembalikan list path .py.
+    Recursively scan the framework and PROJECT_ROOT, and return a list of .py paths.
     """
     buckets: list[Path] = []
 
