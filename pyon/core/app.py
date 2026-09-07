@@ -13,12 +13,13 @@ This module MUST NOT be imported directly by the user — use it through App.
 """
 
 from __future__ import annotations
+
 from collections import deque
 from typing import Any, final
 
-from .utils import dispatch
 from .component import Component
-from .vnode import VNode
+from .utils import dispatch
+from .vnode import Children, VNode
 
 
 class ErrorCaughtByBoundary(Exception):
@@ -51,13 +52,44 @@ class ErrorCaughtByBoundary(Exception):
         self.original_error = original_error
 
 
+def _check_sibling_keys(children: Children):
+    """
+    Validates:
+    1. Same Component appears more than once in the same level without explicit 'key' prop.
+    2. Same 'key' appears more than once in the same level.
+    """
+    from collections import Counter
+
+    component_children = [
+        child for child in children
+        if isinstance(child, VNode)
+        and isinstance(child.tag, type)
+        and issubclass(child.tag, Component)
+    ]
+
+    for child in component_children:
+        if not child.key and isinstance(child.tag, type):
+            child.key = child.tag.__name__
+
+    key_counts = Counter(child.key for child in component_children)
+    duplicate_keys = {key for key, count in key_counts.items() if count > 1 and isinstance(key, str)}
+
+    if duplicate_keys:
+        raise ValueError(
+            f"Duplicate keys found in the same level of the VNode tree:\n"
+            f"{sorted(duplicate_keys)}."
+            f"Add explicit unique 'key' props to the components."
+            f"Example: h('TodoItem', {{\"key\": \"todo-item-1\"}})"
+        )
+
+
 def _expand_tree(
-    node: "VNode",
+    node: VNode,
     path: str,
     parent_key: str,
-    component_map: "dict[str, Component]",
-    app: "App",
-) -> "VNode":
+    component_map: dict[str, Component],
+    app: App,
+) -> VNode:
     """Recursively expands a VNode tree into a pure HTML tree.
 
     This is a CORE function of the framework. It converts a VNode tree that
@@ -103,11 +135,11 @@ def _expand_tree(
     if isinstance(node.tag, type) and issubclass(node.tag, Component):
         # Get local key from props — mandatory for all custom components.
         # Key is used as a unique identifier for the component in component_map.
-        local_key = node.props.get("key")
+        local_key = node.props.get("key") or node.tag.__name__
         if local_key is None:
             raise ValueError(
                 f"'{node.tag.__name__}' must have 'key' props. "
-                f"Example: h({node.tag.__name__}, {{\"key\": \"unique-name\"}})"
+                f'Example: h({node.tag.__name__}, {{"key": "unique-name"}})'
             )
         local_key = str(local_key)
 
@@ -164,7 +196,7 @@ def _expand_tree(
 
                 dispatch(instance._invoke_on_mount(), instance)
                 component_map[full_key] = instance
-            
+
             # Store the current DOM path in the instance.
             # Used by _sync_dom_paths() and App._update_from_key()
             # to determine the position of the subtree in the DOM.
@@ -188,9 +220,9 @@ def _expand_tree(
             # ErrorCaughtByBoundary goes up through recursion until it finds the
             # targeted boundary component (e_boundary.boundary_key).
             if full_key == e_boundary.boundary_key:
-                if not instance: 
+                if not instance:
                     raise RuntimeError("ErrorCaughtByBoundary: instance is None")
-                
+
                 # We are the boundary target — call component_did_catch
                 # to update state (e.g., set fallback flag).
                 instance.component_did_catch(e_boundary.original_error)
@@ -224,7 +256,11 @@ def _expand_tree(
 
                 # Check if parent overrides component_did_catch
                 # (not the default from the base Component class).
-                if parent_instance and type(parent_instance).component_did_catch is not Component.component_did_catch:
+                if (
+                    parent_instance
+                    and type(parent_instance).component_did_catch
+                    is not Component.component_did_catch
+                ):
                     boundary_key = curr_key
                     break
 
@@ -233,7 +269,7 @@ def _expand_tree(
                     curr_key = curr_key.rsplit(".", 1)[0]
                 else:
                     curr_key = ""
-            
+
             if boundary_key:
                 # Boundary found — wrap the error and throw it upwards.
                 # This exception will be caught by the ErrorCaughtByBoundary
@@ -242,6 +278,8 @@ def _expand_tree(
             else:
                 # No boundary — throw the original error (unhandled).
                 raise e
+
+    _check_sibling_keys(node.children)
 
     # ── CASE 2: HTML string tag — expand children only ──────────────────
     expanded_children = []
@@ -258,14 +296,16 @@ def _expand_tree(
 
     # Return a new VNode with expanded children.
     # Do not mutate the original node so the old tree remains intact for diffing.
-    return VNode(tag=node.tag, props=node.props, children=expanded_children, key=node.key)
+    return VNode(
+        tag=node.tag, props=node.props, children=expanded_children, key=node.key
+    )
 
 
 def _find_path_by_key(
-    tree: "VNode",
+    tree: VNode,
     target_key: str,
     current_path: str = "0",
-) -> "str | None":
+) -> str | None:
     """Finds the DOM path of a VNode that has a specific component_key.
 
     Traverses the expanded VNode tree recursively (DFS) to find the VNode
@@ -306,7 +346,7 @@ def _find_path_by_key(
     return None
 
 
-def _collect_keys_in_tree(node: "VNode", result: set) -> None:
+def _collect_keys_in_tree(node: VNode, result: set) -> None:
     """Collects all component_keys from an expanded VNode tree.
 
     Recursively traverses the tree and adds every ``component_key`` found
@@ -336,7 +376,7 @@ def _collect_keys_in_tree(node: "VNode", result: set) -> None:
             _collect_keys_in_tree(child, result)
 
 
-def _get_vnode_by_path(tree: "VNode", path: str) -> "VNode":
+def _get_vnode_by_path(tree: VNode, path: str) -> VNode:
     """Navigates to the VNode at a specific path in the expanded tree.
 
     The path uses a dot-separated index format: ``"0"`` for root,
@@ -375,7 +415,7 @@ def _get_vnode_by_path(tree: "VNode", path: str) -> "VNode":
     return node
 
 
-def _set_vnode_by_path(tree: "VNode", path: str, new_node: "VNode") -> None:
+def _set_vnode_by_path(tree: VNode, path: str, new_node: VNode) -> None:
     """Replaces a VNode at a specific path in-place within its parent.
 
     This function navigates to the parent of the target path, then replaces the
@@ -428,8 +468,8 @@ def _set_vnode_by_path(tree: "VNode", path: str, new_node: "VNode") -> None:
 
 
 def _sync_dom_paths(
-    tree: "VNode",
-    component_map: "dict[str, Component]",
+    tree: VNode,
+    component_map: dict[str, Component],
     current_path: str = "0",
 ) -> None:
     """Synchronizes the ``_dom_path`` of all component instances after the tree changes.
@@ -496,21 +536,21 @@ class App:
         >>> app.mount("#app")
     """
 
-    def __init__(self, root_component_class: type["Component"]) -> None:
+    def __init__(self, root_component_class: type[Component]) -> None:
         # Root component class — will be instantiated during mount().
-        self.root_class: type["Component"] = root_component_class
+        self.root_class: type[Component] = root_component_class
 
         # Latest expanded VNode tree (all HTML string tags).
         # None before mount() is called.
-        self.current_tree: "VNode | None" = None
+        self.current_tree: VNode | None = None
 
         # Map of full_key → Component instance.
         # Allows instance reuse during re-render (state preserved).
         # Key format: "TodoApp.error-boundary.todo-item-1"
-        self.component_map: "dict[str, Component]" = {}
+        self.component_map: dict[str, Component] = {}
 
-        self.pending_updates: deque["Component"] = deque()
-        self.dirty_components: deque["Component"] = deque()
+        self.pending_updates: deque[Component] = deque()
+        self.dirty_components: deque[Component] = deque()
 
         # CSS selector of the DOM element where the app is mounted.
         self.selector: str = "#app"
@@ -518,7 +558,7 @@ class App:
         # Flag to prevent multiple flushes in a single cycle.
         self._flush_scheduled = False
 
-        self._contexts: dict[str, "Any"] = {}
+        self._contexts: dict[str, Any] = {}
 
     def mount(self, selector: str = "#app") -> None:
         """Performs initial rendering of the application to the DOM (initial mount).
@@ -552,15 +592,20 @@ class App:
                 props={"key": self.root_class.__name__},
                 children=[],
             ),
-            path = "0", # Root is always at path "0"
-            parent_key = "", # No parent yet
-            component_map = self.component_map,
-            app = self,
+            path="0",  # Root is always at path "0"
+            parent_key="",  # No parent yet
+            component_map=self.component_map,
+            app=self,
         )
 
         # Send the expanded tree to the bridge to be rendered to the DOM.
         # full_render() converts VNode tree → HTML string → innerHTML.
-        full_render(self.current_tree, selector, self.flush_updates, component_map=self.component_map)
+        full_render(
+            self.current_tree,
+            selector,
+            self.flush_updates,
+            component_map=self.component_map,
+        )
 
     def _update_from_key(self, key: str) -> None:
         """Incremental update cycle for a specific component.
@@ -591,8 +636,9 @@ class App:
             key: Hierarchical full key of the component triggering the update.
                 Example: ``"TodoApp.todo-list.todo-item-1"``.
         """
-        from .differ import diff
         from pyon.dom import apply_patches
+
+        from .differ import diff
 
         # Guard: do not process if the tree has not been mounted yet.
         if self.current_tree is None:
@@ -609,19 +655,16 @@ class App:
         # ── Snapshot child keys before re-rendering ──────────────────────
         # Collect all keys that are descendants of this component.
         # Example: key="App" → retrieve "App.list", "App.list.item-1", etc.
-        keys_before = {
-            k for k in self.component_map
-            if k.startswith(key + ".")
-        }
+        keys_before = {k for k in self.component_map if k.startswith(key + ".")}
 
         # ── Expand new subtree ───────────────────────────────────────────
         # Render component and expand the output into an HTML VNode tree.
         new_branch = _expand_tree(
             instance.render(),
-            path = path,
-            parent_key = key,
-            component_map = self.component_map,
-            app = self,
+            path=path,
+            parent_key=key,
+            component_map=self.component_map,
+            app=self,
         )
 
         # ── Orphan detection ─────────────────────────────────────────────
@@ -634,7 +677,7 @@ class App:
         # ── Diff old branch vs new branch ────────────────────────────────
         old_branch = _get_vnode_by_path(self.current_tree, path)
 
-        # Bug Fix: Pastikan new_branch mempertahankan identitas (key & component_key) 
+        # Bug Fix: Pastikan new_branch mempertahankan identitas (key & component_key)
         # dari VNode sebelumnya. Jika hilang, differ akan menganggap ini elemen baru
         # dan menghancurkan referensi DOM proxy secara prematur.
         new_branch.key = old_branch.key
@@ -647,12 +690,20 @@ class App:
         # This ensures no memory leaks or stale references.
         for orphan_key in orphan_keys:
             if orphan_key in self.component_map:
-                dispatch(self.component_map[orphan_key]._invoke_on_unmount(), self.component_map[orphan_key])
+                dispatch(
+                    self.component_map[orphan_key]._invoke_on_unmount(),
+                    self.component_map[orphan_key],
+                )
                 del self.component_map[orphan_key]
 
         # ── Apply patches to DOM via bridge ──────────────────────────────
         if patches:
-            apply_patches(patches, self.selector, flush_callback=self.flush_updates, component_map=self.component_map)
+            apply_patches(
+                patches,
+                self.selector,
+                flush_callback=self.flush_updates,
+                component_map=self.component_map,
+            )
 
         # ── Update current_tree ──────────────────────────────────────────
         if path == "0":
@@ -666,10 +717,14 @@ class App:
         # After the tree changes, the DOM position of components might shift.
         # Ensure all instances have an up-to-date _dom_path.
         _sync_dom_paths(self.current_tree, self.component_map)
-        dispatch(instance.on_update(instance._prev_props, instance._prev_state), instance)
+        dispatch(
+            instance.on_update(instance._prev_props, instance._prev_state), instance
+        )
         while self.pending_updates:
             instance = self.pending_updates.popleft()
-            dispatch(instance.on_update(instance._prev_props, instance._prev_state), instance)
+            dispatch(
+                instance.on_update(instance._prev_props, instance._prev_state), instance
+            )
 
     def flush_updates(self) -> None:
         """Flushes all pending updates and re-renders the entire tree."""
@@ -686,12 +741,12 @@ class App:
                     "This may happen when a component uncontrollably calls set_state()"
                     "in its on_update(), on_mount(), or render() methods."
                 )
-            
+
             comp = self.dirty_components.popleft()
             if comp._dirty and comp._mounted:
                 comp.execute_update()
 
-    def provide(self, key: str, value: "Any") -> None:
+    def provide(self, key: str, value: Any) -> None:
         """Provide a context value to descendant components.
 
         Args:
@@ -705,7 +760,7 @@ class App:
         """
         self._contexts[key] = value
 
-    def schedule_flush(self, comp: "Component") -> None:
+    def schedule_flush(self, comp: Component) -> None:
         self.dirty_components.append(comp)
         if not self._flush_scheduled:
             self._flush_scheduled = True
@@ -714,9 +769,11 @@ class App:
     def _request_microtask_flush(self) -> None:
         try:
             from pyon.dom import queue_microtask
+
             queue_microtask(self._run_flush)
         except (ImportError, AttributeError, NameError, Exception):
             import asyncio
+
             try:
                 loop = asyncio.get_running_loop()
                 loop.call_soon(self._run_flush)
@@ -727,13 +784,16 @@ class App:
         self._flush_scheduled = False
         self.flush_updates()
 
-_active_app: "App | None" = None
 
-def create_app(root_component_class: type["Component"]) -> App:
+_active_app: App | None = None
+
+
+def create_app(root_component_class: type[Component]) -> App:
     global _active_app
     app = App(root_component_class)
     _active_app = app
     return app
+
 
 def teardown() -> None:
     global _active_app
@@ -744,9 +804,10 @@ def teardown() -> None:
                 comp._invoke_on_unmount()
             except Exception as e:
                 import traceback
+
                 print(f"Error unmounting {comp}: {e}")
                 traceback.print_exc()
-        
+
         _active_app.component_map.clear()
         _active_app.dirty_components.clear()
 
@@ -760,4 +821,3 @@ def teardown() -> None:
 
         _active_app._contexts.clear()
         _active_app = None
-        

@@ -73,7 +73,7 @@ from src.pages.Index import Index
 
 class App(Component):
     def render(self):
-        return h("div", {"class": "app-container"}, [h(Index, {"key": "index"})])
+        return h("div", {"class": "app-container"}, [h(Index, {})])
 
 """
     create_file(cwd / "src/App.py", src_app_py)
@@ -110,7 +110,7 @@ class Index(Component):
                 h("h1", {"style": "text-align: center;"}, ["Welcome to PyOn-Py"]),
                 h(
                     Card,
-                    {"title": "Hello World!", "key": "hello-world"},
+                    {"title": "Hello World!"},
                     ["This is a minimalistic PyOn-Py template."],
                 ),
             ],
