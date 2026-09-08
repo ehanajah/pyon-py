@@ -11,6 +11,7 @@ if TYPE_CHECKING:
         Component,
         CreatePatch,
         DOMElement,
+        Node,
         Patch,
         ReorderChildrenPatch,
         ReplacePatch,
@@ -160,19 +161,21 @@ def apply_patches(
                 if owner is not None:
                     path_owner_map[patch["path"]] = owner
 
-        _apply_single_patch(patch, root_selector, path_owner_map, flush_callback, component_map)
+        _apply_single_patch(patch, root_selector, path_owner_map, flush_callback, _cmap)
 
 
-def _cleanup_dangling_ref(el: "DOMElement", component_map: "dict[str, Component]"):
-    if hasattr(el, "hasAttribute") and el.hasAttribute("data-pyon-ref"):
-        ref_name = el.getAttribute("data-pyon-ref")
-        owner_path = el.getAttribute("data-pyon-owner-path")
-        owner = None
-        if owner_path:
-            for comp in component_map.values():
-                if comp._dom_path == owner_path:
-                    owner = comp
-                    break
-                    
-        if owner and ref_name and ref_name in owner.refs:
-            del owner.refs[ref_name]
+def _cleanup_dangling_ref(el: "Node", component_map: "dict[str, Component]"):
+    if hasattr(el, "hasAttribute"):
+        el = cast(DOMElement, el)
+        if el.hasAttribute("data-pyon-ref"):
+            ref_name = el.getAttribute("data-pyon-ref")
+            owner_path = el.getAttribute("data-pyon-owner-path")
+            owner = None
+            if owner_path:
+                for comp in component_map.values():
+                    if comp._dom_path == owner_path:
+                        owner = comp
+                        break
+                        
+            if owner and ref_name and ref_name in owner.refs:
+                del owner.refs[ref_name]

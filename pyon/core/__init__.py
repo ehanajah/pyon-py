@@ -9,7 +9,7 @@ from .differ import (
     UpdatePropsPatch,
     diff,
 )
-from .dom import DOMElement, DOMTextNode
+from .dom import DOMElement, DOMTextNode, Node
 from .events import Event
 from .utils import current_component, dispatch
 from .vnode import Props, VNode, h
@@ -23,6 +23,7 @@ __all__ = [
     "DOMTextNode",
     "ErrorCaughtByBoundary",
     "Event",
+    "Node",
     "Patch",
     "Props",
     "ReorderChildrenPatch",
