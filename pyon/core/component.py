@@ -24,11 +24,12 @@ Usage example::
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Coroutine, Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
+    TypeAlias,
     TypedDict,
     cast,
     final,
@@ -70,14 +71,18 @@ class BaseProps(TypedDict, total=False):
     children: list[Any]
 
 
+BaseState: TypeAlias = dict[str, Any]
+
+
 # TypeVar for generic Props — must be a Mapping (dict-like).
 # Allows Component subclasses to declare their props type explicitly.
 PropsT = TypeVar("PropsT", bound=Mapping[str, Any], default=BaseProps)
+StateT = TypeVar("StateT", bound=Mapping[str, Any], default=BaseState)
 
 EventsT = TypeVar("EventsT", bound=Mapping[str, Callable])
 
 
-class Component(Generic[PropsT]):
+class Component(Generic[PropsT, StateT]):
     """Base class for all user-defined UI components.
 
     Component follows the React class component pattern:
@@ -129,9 +134,9 @@ class Component(Generic[PropsT]):
     """
 
     props: PropsT
-    _state: dict[str, Any]
+    _state: StateT
     _prev_props: PropsT
-    _prev_state: dict[str, Any]
+    _prev_state: StateT
     _dirty: bool  # batching flag: prevents rescheduling updates if an update is already scheduled
     _updates: deque[Callable[[], None]]  # stores pending update callbacks (e.g., set_state closures)
     _cleanups: list[Callable[[], None]]  # stores generic cleanup callbacks (e.g. proxy.destroy)
@@ -170,9 +175,9 @@ class Component(Generic[PropsT]):
             and context-dependent logic.
         """
         self.props = props if props is not None else cast(PropsT, {})
-        self._state = {}  # populated by subclasses in their respective __init__
+        self._state = cast(StateT, {})
         self._prev_props = cast(PropsT, {})
-        self._prev_state = {}
+        self._prev_state = cast(StateT, {})
         self._dirty = False
         self._updates = deque()
         self._cleanups = []
@@ -267,7 +272,7 @@ class Component(Generic[PropsT]):
         if not self._updates:
             return
 
-        self._prev_state = dict(self._state or {}).copy()
+        self._prev_state = cast(StateT, dict(self._state or {}).copy())
         self._prev_props = cast(PropsT, dict(self.props or {}).copy())
 
         while self._updates:
@@ -307,7 +312,7 @@ class Component(Generic[PropsT]):
         """
         raise NotImplementedError
 
-    def on_mount(self) -> None:
+    def on_mount(self) -> None | Coroutine[Any, Any, None]:
         """Lifecycle hook called once after the component is first created.
 
         Override this method to perform initialization that requires the
@@ -325,7 +330,7 @@ class Component(Generic[PropsT]):
                     # Tidak perlu memanggil super().on_mount()!
         """
 
-    def on_update(self, prev_props: PropsT, prev_state: dict[str, Any]) -> None:
+    def on_update(self, prev_props: PropsT, prev_state: dict[str, Any]) -> None | Coroutine[Any, Any, None]:
         """Lifecycle hook called after the component is updated.
 
         Override this method to perform side effects after the component
@@ -343,7 +348,7 @@ class Component(Generic[PropsT]):
                         self.set_state({"content": fetch_new_content()})
         """
 
-    def on_unmount(self) -> None:
+    def on_unmount(self) -> None | Coroutine[Any, Any, None]:
         """Lifecycle hook called when the component is about to be removed from the tree.
 
         This method is purely for user-defined cleanup operations such as
