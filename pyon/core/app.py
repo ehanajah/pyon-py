@@ -189,7 +189,7 @@ def _expand_tree(
                 instance._schedule_update = lambda k=full_key: app._update_from_key(k)
                 instance._enqueue_dirty = lambda c=instance: app.schedule_flush(c)
 
-                dispatch(instance._invoke_on_mount(), instance)
+                app.pending_mounts.append(instance)
                 component_map[full_key] = instance
 
             # Store the current DOM path in the instance.
@@ -558,6 +558,7 @@ class App:
         self.component_map: dict[str, Component] = {}
 
         self.pending_updates: deque[Component] = deque()
+        self.pending_mounts: deque[Component] = deque()
         self.dirty_components: deque[Component] = deque()
 
         # CSS selector of the DOM element where the app is mounted.
@@ -607,13 +608,19 @@ class App:
         )
 
         # Send the expanded tree to the bridge to be rendered to the DOM.
-        # full_render() converts VNode tree → HTML string → innerHTML.
+        # full_render() converts VNode tree        # Initial rendering execution
         full_render(
             self.current_tree,
-            selector,
+            self.selector,
             self.flush_updates,
-            component_map=self.component_map,
+            self.component_map,
         )
+
+        # Trigger on_mount lifecycle for newly mounted components
+        # This runs AFTER DOM elements have been created and refs assigned
+        while self.pending_mounts:
+            instance = self.pending_mounts.popleft()
+            dispatch(instance._invoke_on_mount(), instance)
 
     def _update_from_key(self, key: str) -> None:
         """Incremental update cycle for a specific component.
@@ -730,6 +737,11 @@ class App:
         # After the tree changes, the DOM position of components might shift.
         # Ensure all instances have an up-to-date _dom_path.
         _sync_dom_paths(self.current_tree, self.component_map)
+        
+        while self.pending_mounts:
+            instance = self.pending_mounts.popleft()
+            dispatch(instance._invoke_on_mount(), instance)
+            
         dispatch(
             instance.on_update(instance._prev_props, instance._prev_state), instance
         )
