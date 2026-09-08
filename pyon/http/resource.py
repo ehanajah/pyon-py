@@ -1,5 +1,7 @@
 import asyncio
-from typing import Generic, TypeVar, Callable, Coroutine, Any, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any, Generic, TypeVar
+
 from pyon.core import Component
 
 T = TypeVar("T")
@@ -13,8 +15,8 @@ class Resource(Generic[T]):
         self._fetcher = fetcher
 
         # Reactive state
-        self.data: Optional[T] = None
-        self.error: Optional[Exception] = None
+        self.data: T | None = None
+        self.error: Exception | None = None
         self.loading: bool = not lazy
 
         # Automatically execute fetcher after instantiation if not lazy

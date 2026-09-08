@@ -1,5 +1,6 @@
 from urllib.parse import parse_qsl
 
+
 def get_query_params(search_str: str) -> dict[str, str]:
     return dict(parse_qsl(search_str.lstrip("?")))
 

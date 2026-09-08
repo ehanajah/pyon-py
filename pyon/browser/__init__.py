@@ -1,4 +1,4 @@
 from ._protocol import FetchResponse
-from .impl import js, ffi, fetch
+from .impl import fetch, ffi, js
 
-__all__ = ["js", "ffi", "fetch", "FetchResponse"]
+__all__ = ["FetchResponse", "fetch", "ffi", "js"]

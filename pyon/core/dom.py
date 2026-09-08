@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from typing import Protocol, Any, Iterable, overload
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any, Protocol, overload
+
 
 class NodeList(Protocol):
     """Protocol for the NodeList object that stores a collection of DOM nodes."""

@@ -1,32 +1,40 @@
-from .app import App, ErrorCaughtByBoundary, create_app, teardown, _expand_tree
-from .component import Component, BaseProps
-from .vnode import VNode, h, Props
-from .differ import diff, Patch, CreatePatch, ReplacePatch, UpdatePropsPatch, SetTextPatch, ReorderChildrenPatch
+from .app import App, ErrorCaughtByBoundary, _expand_tree, create_app, teardown
+from .component import BaseProps, Component
+from .differ import (
+    CreatePatch,
+    Patch,
+    ReorderChildrenPatch,
+    ReplacePatch,
+    SetTextPatch,
+    UpdatePropsPatch,
+    diff,
+)
 from .dom import DOMElement, DOMTextNode
-from .utils import dispatch, current_component
 from .events import Event
+from .utils import current_component, dispatch
+from .vnode import Props, VNode, h
 
 __all__ = [
     "App",
-    "ErrorCaughtByBoundary",
-    "Component",
     "BaseProps",
-    "VNode",
-    "h",
-    "diff",
-    "create_app",
-    "teardown",
+    "Component",
+    "CreatePatch",
     "DOMElement",
     "DOMTextNode",
-    "dispatch",
-    "Patch",
-    "CreatePatch",
-    "ReplacePatch",
-    "UpdatePropsPatch",
-    "SetTextPatch",
-    "ReorderChildrenPatch",
-    "Props",
-    "_expand_tree",
+    "ErrorCaughtByBoundary",
     "Event",
+    "Patch",
+    "Props",
+    "ReorderChildrenPatch",
+    "ReplacePatch",
+    "SetTextPatch",
+    "UpdatePropsPatch",
+    "VNode",
+    "_expand_tree",
+    "create_app",
     "current_component",
+    "diff",
+    "dispatch",
+    "h",
+    "teardown",
 ]

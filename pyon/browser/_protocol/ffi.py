@@ -1,4 +1,6 @@
-from typing import Protocol, Any, Callable
+from collections.abc import Callable
+from typing import Any, Protocol
+
 
 class FFIProxy(Protocol):
     """Protocol for FFI Proxy object that wraps Python callable.

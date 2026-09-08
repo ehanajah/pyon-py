@@ -1,6 +1,6 @@
-from .client import get, post, put, patch, delete, request
+from .client import delete, get, patch, post, put, request
 from .exceptions import HTTPError, HTTPStatusError
-from .resource import create_resource, Resource
+from .resource import Resource, create_resource
 from .response import HTTPResponse
 
-__all__ = ["get", "post", "put", "patch", "delete", "request", "HTTPResponse", "HTTPError", "HTTPStatusError", "create_resource", "Resource"]
+__all__ = ["HTTPError", "HTTPResponse", "HTTPStatusError", "Resource", "create_resource", "delete", "get", "patch", "post", "put", "request"]

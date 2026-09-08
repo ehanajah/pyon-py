@@ -1,12 +1,11 @@
-from typing import TYPE_CHECKING, Callable, Any
-from pyon.browser import ffi
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
+from pyon.browser import ffi
 from pyon.core import dispatch
 
 if TYPE_CHECKING:
-    from pyon.core import Props
-    from pyon.core import Component
-    from pyon.core import DOMElement
+    from pyon.core import Component, DOMElement, Props
 
 _BOOLEAN_ATTRS = {
     "disabled", "checked", "readonly", "required",

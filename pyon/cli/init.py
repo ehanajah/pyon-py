@@ -1,6 +1,7 @@
-import click
-import os
 from pathlib import Path
+
+import click
+
 
 def create_file(path: Path, content: str):
     if not path.exists():

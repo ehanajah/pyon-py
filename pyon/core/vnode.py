@@ -13,8 +13,10 @@ Example usage::
 """
 
 from __future__ import annotations
-from typing import Mapping, Sequence, Union, Optional, TypeAlias, Any
+
+from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Any, TypeAlias, Union
 
 from .events import EventHandler
 
@@ -24,7 +26,7 @@ from .events import EventHandler
 # TagType: can be an HTML string tag ("div", "span", "button") or a Component class.
 # Used by _expand_tree() in core/app.py to determine whether a node
 # needs to be instantiated as a Component or directly as a DOM element.
-TagType: TypeAlias = Union[str, type]
+TagType: TypeAlias = str | type
 
 # Children: list of child nodes of a VNode.
 # Can contain other VNodes (for nested elements) or primitives (str/int/float)
@@ -33,7 +35,7 @@ Children: TypeAlias = Sequence[Union["VNode", str, int, float]]
 
 # PropValue: a valid value for a single property.
 # Supports strings, numbers, booleans, event handlers, dictionaries (e.g. for style), or None.
-PropValue: TypeAlias = Union[str, int, float, bool, EventHandler, Children, None, dict[str, Any], object]
+PropValue: TypeAlias = str | int | float | bool | EventHandler | Children | None | dict[str, Any] | object
 
 # Props: dictionary of properties passed to an element/component.
 # Example: {"class": "active", "on_click": handler_fn, "disabled": True}
@@ -80,8 +82,8 @@ class VNode:
     tag: TagType
     props: Props = field(default_factory=dict)
     children: Children = field(default_factory=list)
-    key: Optional[str] = None
-    component_key: Optional[str] = None
+    key: str | None = None
+    component_key: str | None = None
 
     def __post_init__(self) -> None:
         """Automatic initialization after the dataclass is created.
@@ -101,8 +103,8 @@ class VNode:
 
 def h(
     tag: TagType,
-    props: Optional[Props] = None,
-    children: Optional[Children] = None,
+    props: Props | None = None,
+    children: Children | None = None,
 ) -> VNode:
     """Helper function to create a VNode — equivalent to JSX in React.
 

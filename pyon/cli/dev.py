@@ -1,7 +1,8 @@
-import click
 import asyncio
 import sys
 from pathlib import Path
+
+import click
 
 # Ensure project root (where pyon is run) is in sys.path
 sys.path.insert(0, str(Path.cwd()))

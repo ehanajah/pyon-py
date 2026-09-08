@@ -1,8 +1,10 @@
-from typing import Callable, TypedDict, Any
+from collections.abc import Callable
+from typing import Any, TypedDict
 
-from pyon.browser import js, ffi
+from pyon.browser import ffi, js
 
 from .utils import get_query_params
+
 
 class RouteDef(TypedDict):
     path: str

@@ -1,12 +1,13 @@
-from typing import TYPE_CHECKING, Callable, Any
-from pyon.browser import js
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
+from pyon.browser import js
 from pyon.core import VNode
+
 from .props import _apply_props
 
 if TYPE_CHECKING:
-    from pyon.core import Component
-    from pyon.core import DOMElement
+    from pyon.core import Component, DOMElement
 
 def _find_owner(
     node_path: str,
@@ -14,12 +15,11 @@ def _find_owner(
 ) -> "Component | None":
     best_path   = ""
     best_owner  = None
-    for _key, instance in component_map.items():
+    for instance in component_map.values():
         dom_path = instance._dom_path
-        if node_path == dom_path or node_path.startswith(dom_path + "."):
-            if len(dom_path) > len(best_path):
-                best_path  = dom_path
-                best_owner = instance
+        if (node_path == dom_path or node_path.startswith(dom_path + ".")) and len(dom_path) > len(best_path):
+            best_path  = dom_path
+            best_owner = instance
     return best_owner
 
 def build_path_owner_map(
@@ -45,7 +45,7 @@ def _build_dom_element(
     current_path: str = "0",
 ) -> "DOMElement":
     owner = path_owner_map.get(current_path)
-    el: "DOMElement" = js.document.createElement(str(node.tag))
+    el: DOMElement = js.document.createElement(str(node.tag))
     _apply_props(el, node.props, flush_callback=flush_callback, owner=owner)
     for i, child in enumerate(node.children):
         child_path = f"{current_path}.{i}"
@@ -74,8 +74,8 @@ def full_render(
     container.innerHTML = ""
     container.appendChild(_build_dom_element(tree, path_owner_map, flush_callback=flush_callback))
     
-    import sys
     import os
+    import sys
     if component_map is not None and sys.platform == "emscripten" and os.getenv("PYON_ENV") == "development":
         if not hasattr(js.window, "__pyon_py"):
             js.window.__pyon_py = type("PyonDevTools", (), {})() # type: ignore

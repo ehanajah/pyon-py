@@ -18,9 +18,10 @@ Path format:
 """
 
 from __future__ import annotations
-from typing import Optional, Literal, TypedDict, Union, cast
-from .vnode import VNode, Props
 
+from typing import Literal, TypedDict, cast
+
+from .vnode import Props, VNode
 
 # =============================================================================
 # Patch operation types
@@ -43,7 +44,7 @@ class CreatePatch(TypedDict):
 
     op: Literal["CREATE"]
     path: str
-    node: "VNode"
+    node: VNode
 
 
 class RemovePatch(TypedDict):
@@ -75,7 +76,7 @@ class ReplacePatch(TypedDict):
 
     op: Literal["REPLACE"]
     path: str
-    node: "VNode"
+    node: VNode
 
 
 class UpdatePropsPatch(TypedDict):
@@ -94,7 +95,7 @@ class UpdatePropsPatch(TypedDict):
 
     op: Literal["UPDATE_PROPS"]
     path: str
-    props: "Props"
+    props: Props
 
 
 class SetTextPatch(TypedDict):
@@ -136,7 +137,7 @@ class ReorderChildrenPatch(TypedDict):
 
     op: Literal["REORDER_CHILDREN"]
     path: str
-    mapping: list[Union[int, "VNode", str, float]]
+    mapping: list[int | VNode | str | float]
 
 
 # Union type of all Patches — used as parameter/return types.
@@ -149,7 +150,7 @@ Patch = CreatePatch | RemovePatch | ReplacePatch | UpdatePropsPatch | SetTextPat
 # These helper functions are used internally by diff()
 # to create Patch instances in a more concise way.
 
-def create_patch(path: str, node: "VNode") -> CreatePatch:
+def create_patch(path: str, node: VNode) -> CreatePatch:
     """Create a CreatePatch to add a new element.
 
     Args:
@@ -174,7 +175,7 @@ def remove_patch(path: str) -> RemovePatch:
     return RemovePatch(op="REMOVE", path=path)
 
 
-def replace_patch(path: str, node: "VNode") -> ReplacePatch:
+def replace_patch(path: str, node: VNode) -> ReplacePatch:
     """Create a ReplacePatch to replace an element entirely.
 
     Args:
@@ -187,7 +188,7 @@ def replace_patch(path: str, node: "VNode") -> ReplacePatch:
     return ReplacePatch(op="REPLACE", path=path, node=node)
 
 
-def update_props_patch(path: str, props: "Props") -> UpdatePropsPatch:
+def update_props_patch(path: str, props: Props) -> UpdatePropsPatch:
     """Create an UpdatePropsPatch to update element props.
 
     Args:
@@ -214,7 +215,7 @@ def set_text_patch(path: str, text: str) -> SetTextPatch:
     return SetTextPatch(op="SET_TEXT", path=path, text=text)
 
 
-def reorder_children_patch(path: str, mapping: list[Union[int, "VNode", str, float]]) -> ReorderChildrenPatch:
+def reorder_children_patch(path: str, mapping: list[int | VNode | str | float]) -> ReorderChildrenPatch:
     """Create a ReorderChildrenPatch to reorder children.
 
     Args:
@@ -248,7 +249,7 @@ def _is_text(value: object) -> bool:
     return isinstance(value, (str, int, float))
 
 
-def _diff_props(old: "Props", new: "Props") -> "Props":
+def _diff_props(old: Props, new: Props) -> Props:
     """Compare two props dictionaries and return the changed ones.
 
     Compares each key from both dicts. Props that are changed or
@@ -272,7 +273,7 @@ def _diff_props(old: "Props", new: "Props") -> "Props":
         a removed prop.
         Example: ``{"class": "btn active", "disabled": None}``
     """
-    changes: "Props" = {}
+    changes: Props = {}
     all_keys = set(old) | set(new)
     for key in all_keys:
         old_val = old.get(key)
@@ -288,8 +289,8 @@ def _diff_props(old: "Props", new: "Props") -> "Props":
 # =============================================================================
 
 def diff(
-    old: Optional["VNode"],
-    new: Optional["VNode"],
+    old: VNode | None,
+    new: VNode | None,
     path: str = "0",
 ) -> list[Patch]:
     """Virtual DOM diffing algorithm — compare two VNode trees and generate Patches.
@@ -357,7 +358,7 @@ def diff(
     # Filter out event handlers (callables) because Python callables cannot
     # be reliably compared using ==. Event handlers are always rebound
     # when the element is rebuilt via _build_dom_element().
-    filtered: "Props" = {k: v for k, v in prop_changes.items() if not callable(v)}
+    filtered: Props = {k: v for k, v in prop_changes.items() if not callable(v)}
     if filtered:
         patches.append(UpdatePropsPatch(op="UPDATE_PROPS", path=path, props=filtered))
 
@@ -372,7 +373,7 @@ def diff(
     # mapping represents the order of new children:
     # - int          → reuse old child at that index
     # - VNode/text   → create a new element
-    mapping: list[Union[int, VNode, str, float]] = []
+    mapping: list[int | VNode | str | float] = []
 
     # Build key → index map of old children for O(1) keyed lookup
     old_key_map = {

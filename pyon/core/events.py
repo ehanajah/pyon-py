@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import Any, Callable, Coroutine, Protocol, Optional, TypeAlias, Union
+
+from collections.abc import Callable, Coroutine
+from typing import Any, Protocol, TypeAlias
 
 
 class EventTarget(Protocol):
@@ -12,7 +14,7 @@ class EventTarget(Protocol):
     id: str
     className: str
     
-    def getAttribute(self, name: str) -> Optional[str]:
+    def getAttribute(self, name: str) -> str | None:
         """Retrieves an attribute from the element."""
         ...
         
@@ -43,7 +45,7 @@ class DataTransfer(Protocol):
         """Sets the data for a drag and drop operation."""
         ...
         
-    def clearData(self, format: Optional[str] = None) -> None:
+    def clearData(self, format: str | None = None) -> None:
         """Clears the transfer data for the given format."""
         ...
         
@@ -110,7 +112,7 @@ class MouseEvent(Event, Protocol):
     shiftKey: bool
     altKey: bool
     metaKey: bool
-    relatedTarget: Optional[EventTarget]
+    relatedTarget: EventTarget | None
     
     def getModifierState(self, keyArg: str) -> bool:
         """Returns the state of a modifier key (Ctrl, Shift, Alt, etc.)."""
@@ -158,7 +160,7 @@ class DragEvent(MouseEvent, Protocol):
     Protocol for drag and drop interactions
     (drag, dragstart, dragend, dragenter, dragleave, dragover, drop).
     """
-    dataTransfer: Optional[DataTransfer]
+    dataTransfer: DataTransfer | None
 
 
 # ============================================================================
@@ -190,10 +192,10 @@ class InputEvent(Event, Protocol):
     Protocol for data input events on form elements
     (input, beforeinput).
     """
-    data: Optional[str]
+    data: str | None
     inputType: str
     isComposing: bool
-    dataTransfer: Optional[DataTransfer]
+    dataTransfer: DataTransfer | None
 
 
 class CompositionEvent(Event, Protocol):
@@ -223,7 +225,7 @@ class SubmitEvent(Event, Protocol):
     Protocol for form submission events (submit).
     Always call preventDefault() to prevent the page from reloading.
     """
-    submitter: Optional[EventTarget]    # the button that triggered submission
+    submitter: EventTarget | None    # the button that triggered submission
 
     def preventDefault(self) -> None:
         """Prevents the default submit action that reloads the page."""
@@ -245,7 +247,7 @@ class FocusEvent(Event, Protocol):
     """
     Protocol for focus events (focus, blur, focusin, focusout).
     """
-    relatedTarget: Optional[EventTarget]
+    relatedTarget: EventTarget | None
 
 
 # ============================================================================
@@ -276,7 +278,7 @@ class TouchList(Protocol):
     """
     length: int
     
-    def item(self, index: int) -> Optional[Touch]:
+    def item(self, index: int) -> Touch | None:
         """Retrieves the Touch item at the given index."""
         ...
 
@@ -326,7 +328,7 @@ class ClipboardEvent(Event, Protocol):
     """
     Protocol for clipboard manipulation events (copy, cut, paste).
     """
-    clipboardData: Optional[DataTransfer]
+    clipboardData: DataTransfer | None
 
 
 # ============================================================================
@@ -417,9 +419,9 @@ class StorageEvent(Event, Protocol):
     Protocol for web storage change events (storage).
     Triggered when localStorage or sessionStorage is changed from another tab/window.
     """
-    key: Optional[str]
-    oldValue: Optional[str]
-    newValue: Optional[str]
+    key: str | None
+    oldValue: str | None
+    newValue: str | None
     url: str
     storageArea: Any
 
@@ -515,4 +517,4 @@ class ResizeObserverEvent(Protocol):
 
 # EventHandler: type for event callbacks (on_click, on_input, etc.).
 # Stored inside Props and bound to the DOM by pyodide_impl.py.
-EventHandler: TypeAlias = Union[Callable[..., Any], Coroutine[Any, Any, Any]]
+EventHandler: TypeAlias = Callable[..., Any] | Coroutine[Any, Any, Any]

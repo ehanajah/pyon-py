@@ -1,13 +1,22 @@
-from typing import TYPE_CHECKING, Callable, cast, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
+
 from pyon.browser import js
 
-from .props import _apply_props, _BOOLEAN_ATTRS
-from .render import _build_dom_element, build_path_owner_map, _find_owner
+from .props import _BOOLEAN_ATTRS, _apply_props
+from .render import _build_dom_element, _find_owner, build_path_owner_map
 
 if TYPE_CHECKING:
-    from pyon.core import Patch, CreatePatch, ReplacePatch, UpdatePropsPatch, SetTextPatch, ReorderChildrenPatch
-    from pyon.core import Component
-    from pyon.core import DOMElement
+    from pyon.core import (
+        Component,
+        CreatePatch,
+        DOMElement,
+        Patch,
+        ReorderChildrenPatch,
+        ReplacePatch,
+        SetTextPatch,
+        UpdatePropsPatch,
+    )
 
 
 def _get_element_by_path(path: str, root_selector: str) -> "DOMElement":
@@ -113,7 +122,7 @@ def apply_patches(
 
     for patch in patches:
         if patch["op"] in ("CREATE", "REPLACE"):
-            node = cast("Union[CreatePatch, ReplacePatch]", patch).get("node")
+            node = cast("CreatePatch | ReplacePatch", patch).get("node")
             path_owner_map = build_path_owner_map(node, _cmap, patch["path"]) if node else {}
 
         elif patch["op"] == "REORDER_CHILDREN":

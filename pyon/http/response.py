@@ -2,6 +2,7 @@ from pyon.browser import FetchResponse
 
 from .exceptions import HTTPStatusError
 
+
 class HTTPResponse:
     def __init__(self, raw_response: FetchResponse) -> None:
         self._res = raw_response

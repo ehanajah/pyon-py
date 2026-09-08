@@ -24,7 +24,7 @@ __all__ = [
     "FFI",
     "JS",
     "_JSON",
-    "AbrortController",
+    "AbortController",
     "Console",
     "Crypto",
     "CustomElementRegistry",

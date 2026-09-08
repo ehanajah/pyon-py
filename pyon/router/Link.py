@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
-from pyon.core import Component, BaseProps, h
+from pyon.core import BaseProps, Component, h
 from pyon.core.events import Event
 
 if TYPE_CHECKING:
