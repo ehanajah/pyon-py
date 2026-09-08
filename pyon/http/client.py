@@ -1,7 +1,11 @@
 import json
 import urllib.parse
+
 from pyon.browser import fetch
+from pyon.core import current_component
+
 from .response import HTTPResponse
+
 
 async def request(method: str, url: str, **kwargs) -> HTTPResponse:
     if "params" in kwargs:
@@ -18,8 +22,20 @@ async def request(method: str, url: str, **kwargs) -> HTTPResponse:
         headers = kwargs.get("headers", {})
         headers["Content-Type"] = "application/json"
         kwargs["headers"] = headers
-    
-    raw_response = await fetch(url, method=method, **kwargs)
+
+    comp = current_component.get()
+
+    if "signal" not in kwargs and comp is not None:
+        kwargs["signal"] = comp._get_abort_signal()
+
+    try:
+        raw_response = await fetch(url, method=method, **kwargs)
+    except Exception as e:
+        if "AbortError" in str(e):
+            import asyncio
+            raise asyncio.CancelledError("HTTP request was aborted by the framework (component unmounted).") from e
+        raise
+        
     return HTTPResponse(raw_response)
 
 async def get(url: str, **kwargs) -> HTTPResponse:

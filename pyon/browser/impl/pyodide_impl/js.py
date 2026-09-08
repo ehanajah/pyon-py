@@ -1,7 +1,9 @@
 from typing import Any
 
-from pyon.browser._protocol.dom import JS
 import js  # type: ignore[import]
+
+from pyon.browser._protocol.dom import JS
+
 
 class PyodideJS(JS):
     document = js.document # type: ignore

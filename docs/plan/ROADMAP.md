@@ -40,7 +40,10 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 ## Prioritas 1: Segera (Mendesak & Bernilai Tinggi untuk Aplikasi Nyata)
 *Fokus saat ini: Pemaketan (Packaging) Framework, Manajemen Dependensi, dan Mempercepat Siklus Pengembangan.*
 
-- [x] **Distribusi PyOn-Py sebagai Package & CLI Tool:** (Lihat [Spesifikasi CLI](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/CLI_PACKAGE.md))
+- [x] **Pembatalan Request HTTP (AbortController):**
+  - [x] Mengintegrasikan Javascript `AbortController` ke modul `pyon.http`.
+  - [x] Mengaitkan pembatalan ke *lifecycle* komponen. Jika `on_unmount` dipanggil saat request (seperti `fetch`) masih berjalan, *request* wajib dibatalkan otomatis agar tidak memicu `set_state` pada komponen yang telah musnah (mencegah *memory leak* & *exception*).
+- [ ] **Distribusi PyOn-Py sebagai Package & CLI Tool:** (Lihat [Spesifikasi CLI](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/CLI_PACKAGE.md))
   - [x] **Fase 1 (Refactoring & CLI):** Membuat direktori `pyon/cli/` berbasis `click` (`dev`, `init`), memindahkan `dev_server`, dan menambahkan `pyproject.toml` dengan entry point `pyon`.
   - [x] **Fase 2 (Isolasi Repo):** Mengekstrak direktori `pyon/` menjadi repositori murni `pyon-py` yang bersih dari kode implementasi/contoh aplikasi.
   - [ ] **Fase 3 (Publikasi PyPI):** Membangun `dist/*` via modul `build` dan mengunggahnya ke TestPyPI lalu PyPI asli (rilis v0.1.0).
@@ -53,9 +56,6 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 - [ ] **Local Pyodide & Dependencies (Offline Dev Environment):**
   - Struktur `pyon.toml` terpusat sebagai satu sumber kebenaran (menggunakan `tomllib` Python 3.11+).
   - Skrip pengunduh mandiri `dev_server/download_pyodide.py` untuk mengunduh runtime Pyodide ke localhost.
-- [ ] **Pembatalan Request HTTP (AbortController):**
-  - Mengintegrasikan Javascript `AbortController` ke modul `pyon.http`.
-  - Mengaitkan pembatalan ke *lifecycle* komponen. Jika `on_unmount` dipanggil saat request (seperti `fetch`) masih berjalan, *request* wajib dibatalkan otomatis agar tidak memicu `set_state` pada komponen yang telah musnah (mencegah *memory leak* & *exception*).
 - [ ] **`ref` untuk Akses DOM Langsung:**
   - Menambahkan dukungan kamus referensi `self.refs = {}` pada komponen kelas.
   - Pembungkus jembatan di `pyodide_impl` secara otomatis menyambungkan elemen DOM asli ke dalam `owner.refs["id_input"]` apabila VNode mendeklarasikan prop `"ref": "id_input"`. Sangat penting untuk fokus elemen (`input.focus()`), pemetaan dimensi, dan integrasi library bagan/grafik pihak ketiga (Chart.js / Canvas).

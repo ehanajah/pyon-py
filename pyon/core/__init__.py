@@ -3,7 +3,7 @@ from .component import Component, BaseProps
 from .vnode import VNode, h, Props
 from .differ import diff, Patch, CreatePatch, ReplacePatch, UpdatePropsPatch, SetTextPatch, ReorderChildrenPatch
 from .dom import DOMElement, DOMTextNode
-from .utils import dispatch
+from .utils import dispatch, current_component
 from .events import Event
 
 __all__ = [
@@ -28,4 +28,5 @@ __all__ = [
     "Props",
     "_expand_tree",
     "Event",
+    "current_component",
 ]

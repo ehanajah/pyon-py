@@ -1,5 +1,16 @@
-from typing import Protocol, Any, Coroutine
+from collections.abc import Coroutine
+from typing import Any, Protocol
 
+
+class AbortController(Protocol):
+    """
+    Protocol for the AbortController class.
+    """
+    @property
+    def signal(self) -> Any: ...
+    def abort(self) -> None: ...
+
+    
 class FetchResponse(Protocol):
     """
     Protocol for the response object returned by pyfetch.

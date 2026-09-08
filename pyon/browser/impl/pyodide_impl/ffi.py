@@ -1,7 +1,10 @@
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+
+from pyodide.ffi import create_proxy, to_js  # type: ignore[import]
 
 from pyon.browser._protocol.ffi import FFI, FFIProxy
-from pyodide.ffi import create_proxy, to_js  # type: ignore[import]
+
 
 class PyodideFFI(FFI):
     def create_proxy(self, obj: Callable[..., Any]) -> FFIProxy:

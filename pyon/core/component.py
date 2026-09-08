@@ -22,9 +22,21 @@ Usage example::
 """
 
 from __future__ import annotations
+
 from collections import deque
-from typing import Any, Mapping, Optional, TYPE_CHECKING, cast, Callable, TypedDict, final
-from typing_extensions import Generic, TypeVar
+from collections.abc import Callable, Mapping
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    TypedDict,
+    cast,
+    final,
+)
+
+from typing_extensions import TypeVar
+
+from pyon.browser._protocol.http import AbortController
 
 if TYPE_CHECKING:
     # Import VNode only during type-checking to avoid circular imports.
@@ -129,13 +141,14 @@ class Component(Generic[PropsT]):
     _enqueue_dirty: Callable[[], None]
     _provided: dict[str, Any]  # stores provided context values for this component
     _contexts: dict[str, Any]  # stores context providers for this component
+    _abort_controller: AbortController | None
 
     @property
     def events(self) -> dict[str, Callable]:
         return {}
 
     @final
-    def __init__(self, props: Optional[PropsT] = None) -> None:
+    def __init__(self, props: PropsT | None = None) -> None:
         """Initializes the component's internal attributes.
  
         This method is called automatically by the framework during component
@@ -173,6 +186,7 @@ class Component(Generic[PropsT]):
         # Initialize context providers
         self._provided = {}
         self._contexts = {}
+        self._abort_controller = None
 
     def setup(self) -> None:
         """Lifecycle hook called once after the component is instantiated and
@@ -204,7 +218,6 @@ class Component(Generic[PropsT]):
                         # Context access — available here, not in __init__
                         self.theme = self.inject("theme", default="light")
         """
-        pass
 
     @final
     def set_state(self, updates: Mapping[str, Any]) -> None:
@@ -269,7 +282,7 @@ class Component(Generic[PropsT]):
         # re-render -> diff -> DOM patch.
         self._schedule_update()
 
-    def render(self) -> "VNode":
+    def render(self) -> VNode:
         """Returns a VNode tree representing the component's UI.
 
         This method **must be overridden** by every subclass. It is called
@@ -311,7 +324,6 @@ class Component(Generic[PropsT]):
                     self.set_state({"data": fetch_initial_data()})
                     # Tidak perlu memanggil super().on_mount()!
         """
-        pass
 
     def on_update(self, prev_props: PropsT, prev_state: dict[str, Any]) -> None:
         """Lifecycle hook called after the component is updated.
@@ -330,7 +342,6 @@ class Component(Generic[PropsT]):
                     if prev_props["title"] != self.props["title"]:
                         self.set_state({"content": fetch_new_content()})
         """
-        pass
 
     def on_unmount(self) -> None:
         """Lifecycle hook called when the component is about to be removed from the tree.
@@ -351,7 +362,6 @@ class Component(Generic[PropsT]):
         """
         # Execute all cleanup closures registered by the bridge (e.g., proxy.destroy())
         # to prevent memory leaks.
-        pass
 
     @final
     def _invoke_on_mount(self) -> Any:
@@ -369,6 +379,9 @@ class Component(Generic[PropsT]):
         and automatically flushes all registered cleanup callbacks (e.g. JS proxies)
         to prevent memory leaks.
         """
+        if self._abort_controller is not None:
+            self._abort_controller.abort()
+
         result = self.on_unmount()
         self._mounted = False
         for cleanup in self._cleanups:
@@ -447,7 +460,6 @@ class Component(Generic[PropsT]):
                 def component_did_catch(self, error):
                     self.set_state({"has_error": True, "error_msg": str(error)})
         """
-        pass
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
@@ -459,3 +471,10 @@ class Component(Generic[PropsT]):
                 f"Use setup() instead for state initialization and context access.",
                 stacklevel=2,
             )
+
+    @final
+    def _get_abort_signal(self) -> Any:
+        if self._abort_controller is None:
+            from pyon.browser.impl import create_abort_controller
+            self._abort_controller = create_abort_controller()
+        return self._abort_controller.signal

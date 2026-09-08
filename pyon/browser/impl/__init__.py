@@ -1,16 +1,22 @@
 import sys
-from .._protocol import JS, FFI
+from collections.abc import Callable
+
+from .._protocol import FFI, JS, AbortController
 from .._protocol.http import Fetch
 
 js: JS
 ffi: FFI
 fetch: Fetch
+create_abort_controller: Callable[[], AbortController]
 
 if sys.platform == "emscripten":
-    from .pyodide_impl import PyodideJS, PyodideFFI
+    from .pyodide_impl import PyodideFFI, PyodideJS
+    from .pyodide_impl import create_abort_controller as pyodide_create_abort_controller
     js = PyodideJS()
     ffi = PyodideFFI()
     from pyodide.http import pyfetch as fetch
+
+    create_abort_controller = pyodide_create_abort_controller
 else:
     class MockJS:
         document = None
@@ -34,4 +40,13 @@ else:
     
     fetch = mock_pyfetch
 
-__all__ = ["js", "ffi", "fetch"]
+    def mock_create_abort_controller():
+        class MockAbortController:
+            signal = None
+            def abort(self):
+                pass
+        return MockAbortController()
+
+    create_abort_controller = mock_create_abort_controller
+
+__all__ = ["create_abort_controller", "fetch", "ffi", "js"]

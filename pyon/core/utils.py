@@ -1,9 +1,12 @@
 import asyncio
-from typing import Any, Optional, TYPE_CHECKING
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from .component import Component
 
+
+current_component: ContextVar["Component | None"] = ContextVar("current_context", default=None)
 
 def dispatch(result: Any, instance: Optional["Component"] = None) -> Any:
     """Dispatches an async result to the event loop.
@@ -23,6 +26,9 @@ def dispatch(result: Any, instance: Optional["Component"] = None) -> Any:
         return result
 
     async def _wrapped():
+        token = None
+        if instance:
+            token = current_component.set(instance)
         try:
             await result
         except Exception as e:
@@ -35,6 +41,9 @@ def dispatch(result: Any, instance: Optional["Component"] = None) -> Any:
 
             comp_name = instance.__class__.__name__ if instance else "Unknown"
             print(f"[PyOn-Py Async Error] Unhandled exception in {comp_name}: {e}")
+        finally:
+            if instance and token:
+                current_component.reset(token)
 
     try:
         loop = asyncio.get_running_loop()
