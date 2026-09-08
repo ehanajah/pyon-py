@@ -136,7 +136,29 @@ mock_js.queueMicrotask = lambda proxy: proxy()
 mock_pyodide_ffi = MagicMock()
 mock_pyodide_ffi.create_proxy = lambda fn: MockProxy(fn)
 
-sys.modules["pyon.browser"] = type('MockBrowser', (), {'js': mock_js, 'ffi': mock_pyodide_ffi})()
+# Mock the full pyon.browser module hierarchy
+import types
+
+mock_browser = types.ModuleType("pyon.browser")
+mock_browser.js = mock_js
+mock_browser.ffi = mock_pyodide_ffi
+
+mock_protocol = types.ModuleType("pyon.browser._protocol")
+mock_protocol_http = types.ModuleType("pyon.browser._protocol.http")
+
+class _MockAbortControllerProtocol:
+    signal = None
+    def abort(self): pass
+
+mock_protocol_http.AbortController = _MockAbortControllerProtocol
+
+mock_impl = types.ModuleType("pyon.browser.impl")
+mock_impl.create_abort_controller = lambda: _MockAbortControllerProtocol()
+
+sys.modules["pyon.browser"] = mock_browser
+sys.modules["pyon.browser._protocol"] = mock_protocol
+sys.modules["pyon.browser._protocol.http"] = mock_protocol_http
+sys.modules["pyon.browser.impl"] = mock_impl
 
 from pyon.core import h, VNode
 from pyon.core import Component
@@ -167,16 +189,16 @@ class TodoItemProps(TypedDict, total=False):
     label:     str
     on_remove: object
 
-class TodoItemState(TypedDict):
+class TodoItemState(TypedDict, total=False):
     done: bool
 
 
-class TodoItem(Component[TodoItemProps]):
+class TodoItem(Component[TodoItemProps, TodoItemState]):
+    _state: TodoItemState
     mount_log:   list[str] = []
     unmount_log: list[str] = []
 
-    def __init__(self, props=None):
-        super().__init__(props)
+    def setup(self):
         self._state: TodoItemState = {"done": False}
 
     def on_mount(self):
@@ -220,9 +242,8 @@ class TodoAppState(TypedDict):
     input_val: str
 
 
-class TodoApp(Component[dict]):
-    def __init__(self, props=None):
-        super().__init__(props)
+class TodoApp(Component[dict, TodoAppState]):
+    def setup(self):
         self._state: TodoAppState = {
             "items": [
                 {"id": 1, "label": "Belajar PyOn-Py"},
@@ -596,29 +617,97 @@ def run_tests():
         import traceback; traceback.print_exc()
 
     # ------------------------------------------------------------------
-    # 7. ERROR HANDLING — key wajib
+    # 7. AUTO-ASSIGN KEY — class name digunakan sebagai default key
     # ------------------------------------------------------------------
-    print("\n▶ Phase 7: Error Handling — Key Wajib")
+    print("\n▶ Phase 7: Auto-Assign Key (class name sebagai default)")
 
     try:
-        class NoKeyComponent(Component):
+        class SingleComponent(Component):
             def render(self):
-                return h("div", {}, ["no key"])
+                return h("div", {}, ["single"])
 
+        # Single component tanpa key eksplisit → seharusnya BERHASIL
+        # karena class name ("SingleComponent") digunakan sebagai key default
         try:
-            _expand_tree(
-                h(NoKeyComponent, {"label": "test"}),
+            result = _expand_tree(
+                h("div", {}, [
+                    h(SingleComponent, {"label": "test"}),
+                ]),
                 path="0",
                 parent_key="",
                 component_map={},
                 app=app,
             )
-            report("ValueError raised jika key hilang", False, "Tidak ada exception")
+            report(
+                "Single component tanpa key → pakai class name (OK)",
+                True,
+            )
+        except ValueError:
+            report(
+                "Single component tanpa key → pakai class name (OK)",
+                False,
+                "Seharusnya tidak raise ValueError",
+            )
+
+        # Dua component SAMA tanpa key eksplisit → HARUS ValueError
+        # karena keduanya akan mendapat key "SingleComponent" (duplikat)
+        class DupChild(Component):
+            def render(self):
+                return h("span", {}, ["dup"])
+
+        try:
+            _expand_tree(
+                h("div", {}, [
+                    h(DupChild, {}),
+                    h(DupChild, {}),
+                ]),
+                path="0",
+                parent_key="",
+                component_map={},
+                app=app,
+            )
+            report(
+                "Duplikat class tanpa key → ValueError",
+                False,
+                "Tidak ada exception, seharusnya raise ValueError",
+            )
         except ValueError as e:
             report(
-                "ValueError raised jika key hilang",
-                "must have 'key' props" in str(e),
-                f"msg: {e}"
+                "Duplikat class tanpa key → ValueError",
+                "Duplicate keys" in str(e),
+                f"msg: {e}",
+            )
+
+        # Dua component BERBEDA tanpa key → BERHASIL
+        # karena key default masing-masing berbeda
+        class ChildA(Component):
+            def render(self):
+                return h("span", {}, ["A"])
+
+        class ChildB(Component):
+            def render(self):
+                return h("span", {}, ["B"])
+
+        try:
+            _expand_tree(
+                h("div", {}, [
+                    h(ChildA, {}),
+                    h(ChildB, {}),
+                ]),
+                path="0",
+                parent_key="",
+                component_map={},
+                app=app,
+            )
+            report(
+                "Dua class berbeda tanpa key → OK (key default unik)",
+                True,
+            )
+        except ValueError:
+            report(
+                "Dua class berbeda tanpa key → OK (key default unik)",
+                False,
+                "Seharusnya tidak raise ValueError",
             )
 
     except Exception as e:

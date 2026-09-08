@@ -18,8 +18,7 @@ class BuggyComponent(Component[ErrorProps]):
         return h("div", {}, ["Safe"])
 
 class BoundaryComponent(Component[BaseProps]):
-    def __init__(self, props=None):
-        super().__init__(props)
+    def setup(self):
         self._state = {"has_error": False, "error_msg": ""}
 
     def component_did_catch(self, error: Exception) -> None:

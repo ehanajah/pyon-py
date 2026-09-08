@@ -24,8 +24,7 @@ def test_basic_provide_inject():
             return h("span", {"class": f"theme-{theme}"}, [f"Font: {font}"])
 
     class Root(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             self.provide("theme", "dark")
             self.provide("font_size", 16)
 
@@ -72,8 +71,7 @@ def test_context_hierarchy_and_overriding():
             return h("div", {"class": color}, [color])
 
     class BranchA(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             # Override context in this branch
             self.provide("color", "red")
 
@@ -86,8 +84,7 @@ def test_context_hierarchy_and_overriding():
             return h("section", {}, [h(Leaf, {"key": "leafB"})])
 
     class Root(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             self.provide("color", "blue")
 
         def render(self):
@@ -120,8 +117,7 @@ def test_reactive_context_via_callback():
             return h("button", {"on_click": toggle_fn}, [theme_fn()])
 
     class Root(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             self._state = {"theme": "dark"}
             self.provide("get_theme", lambda: self._state["theme"])
             self.provide("toggle_theme", self.toggle)
@@ -153,8 +149,7 @@ def test_reactive_context_via_callback():
 # ── TEST 5: Batching Multiple State Updates ─────────────────────────────────
 def test_state_batching_update_system():
     class Counter(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             self._state = {"count": 0, "status": "idle"}
 
         def do_triple_update(self):
@@ -197,8 +192,7 @@ def test_state_batching_update_system():
 # ── TEST 6: Circuit Breaker for Infinite Re-render Loop ──────────────────────
 def test_circuit_breaker_infinite_loop():
     class Looper(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             self._state = {"tick": 0}
 
         def on_update(self, prev_props, prev_state):
@@ -231,8 +225,7 @@ def test_on_update_prev_props_and_prev_state_snapshot():
     history = []
 
     class Tracker(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             self._state = {"val": 10}
 
         def on_update(self, prev_props, prev_state):
@@ -275,8 +268,7 @@ def test_global_app_context_provide_and_override():
             return h("span", {}, [f"{app_name}:{api_url}"])
 
     class CustomBranch(Component):
-        def __init__(self, props=None):
-            super().__init__(props)
+        def setup(self):
             # Override api_url specifically for this branch
             self.provide("api_url", "https://staging.test")
 

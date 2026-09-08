@@ -26,8 +26,7 @@ def test_async_lifecycle_on_mount() -> None:
     and automatically flushes updates when the background coroutine completes.
     """
     class AsyncLoader(Component):
-        def __init__(self, props: Optional[dict] = None) -> None:
-            super().__init__(props)
+        def setup(self) -> None:
             self._state = {"text": "loading"}
 
         async def on_mount(self) -> None:
@@ -67,8 +66,7 @@ def test_microtask_batching_in_loop() -> None:
     batched into a single scheduled flush when the call stack clears.
     """
     class Batcher(Component):
-        def __init__(self, props: Optional[dict] = None) -> None:
-            super().__init__(props)
+        def setup(self) -> None:
             self._state = {"count": 0}
 
         def do_spam_update(self) -> None:
@@ -115,14 +113,14 @@ def test_stale_unmount_guard() -> None:
     preventing memory leaks or errors from delayed asynchronous responses.
     """
     class Dummy(Component):
-        def __init__(self, props: Optional[dict] = None) -> None:
-            super().__init__(props)
+        def setup(self) -> None:
             self._state = {"alive": True}
 
         def render(self):
             return h("div")
 
     comp = Dummy()
+    comp.setup()
     comp._mounted = True  # Simulate active mounted component
 
     # Simulate component unmount (e.g. removed from DOM during reconciliation)
