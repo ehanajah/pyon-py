@@ -249,3 +249,38 @@ class DOMElement(DOMTextNode, Protocol):
     def prepend(self, *nodes: DOMElement | DOMTextNode | str) -> None: ...
     def append(self, *nodes: DOMElement | DOMTextNode | str) -> None: ...
     def replaceChildren(self, *nodes: DOMElement | DOMTextNode | str) -> None: ...
+
+class HTMLElement(DOMElement, Protocol):
+    """Base protocol for HTML elements."""
+    title: str
+    dir: str
+    lang: str
+    innerText: str
+    outerText: str
+    
+    def focus(self, options: Any = None) -> None: ...
+    def blur(self) -> None: ...
+    def click(self) -> None: ...
+
+
+class HTMLInputElement(HTMLElement, Protocol):
+    """Protocol for <input> elements."""
+    value: str
+    checked: bool
+    disabled: bool
+    name: str
+    type: str
+    placeholder: str
+    
+    def select(self) -> None: ...
+    def setSelectionRange(self, start: int, end: int) -> None: ...
+
+
+class HTMLCanvasElement(HTMLElement, Protocol):
+    """Protocol for <canvas> elements."""
+    width: int
+    height: int
+    
+    def getContext(self, contextId: str, *args: Any) -> Any: ...
+    def toDataURL(self, type: str = "image/png", quality: Any = None) -> str: ...
+

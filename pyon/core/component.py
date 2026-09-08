@@ -147,6 +147,7 @@ class Component(Generic[PropsT, StateT]):
     _provided: dict[str, Any]  # stores provided context values for this component
     _contexts: dict[str, Any]  # stores context providers for this component
     _abort_controller: AbortController | None
+    refs: dict[str, Any]
 
     @property
     def events(self) -> dict[str, Callable]:
@@ -192,6 +193,7 @@ class Component(Generic[PropsT, StateT]):
         self._provided = {}
         self._contexts = {}
         self._abort_controller = None
+        self.refs = {}
 
     def setup(self) -> None:
         """Lifecycle hook called once after the component is instantiated and

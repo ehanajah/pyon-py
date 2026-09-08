@@ -16,9 +16,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, TypeAlias, Union
+from typing import Any, TypeAlias, Union, TYPE_CHECKING
 
 from .events import EventHandler
+from .utils import current_component
+
+if TYPE_CHECKING:
+    from .component import Component
 
 # --- Type Aliases ---
 # These aliases are used throughout the codebase (differ.py, app.py, pyodide_impl.py, etc.)
@@ -84,6 +88,7 @@ class VNode:
     children: Children = field(default_factory=list)
     key: str | None = None
     component_key: str | None = None
+    _owner: Component | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Automatic initialization after the dataclass is created.
@@ -132,4 +137,5 @@ def h(
                     h(ChildComponent, {"data": self._state["items"]}),
                 ])
     """
-    return VNode(tag=tag, props=props or {}, children=children or [])
+    owner = current_component.get()
+    return VNode(tag=tag, props=props or {}, children=children or [], _owner=owner)

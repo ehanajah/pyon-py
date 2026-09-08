@@ -18,7 +18,7 @@ from collections import deque
 from typing import Any, final
 
 from .component import Component
-from .utils import dispatch
+from .utils import current_component, dispatch
 from .vnode import Children, VNode
 
 
@@ -53,11 +53,6 @@ class ErrorCaughtByBoundary(Exception):
 
 
 def _check_sibling_keys(children: Children):
-    """
-    Validates:
-    1. Same Component appears more than once in the same level without explicit 'key' prop.
-    2. Same 'key' appears more than once in the same level.
-    """
     from collections import Counter
 
     component_children = [
@@ -206,7 +201,12 @@ def _expand_tree(
             # Components do not add a path level — the path belongs to its root DOM node.
             # For example: component at path "0.1" → render() produces <div>
             # → that <div> remains at path "0.1".
-            child_vnode = instance.render()
+            token = current_component.set(instance)
+            try:
+                child_vnode = instance.render()
+            finally:
+                current_component.reset(token)
+                
             expanded = _expand_tree(child_vnode, path, full_key, component_map, app)
 
             # Mark the expanded VNode with the component's full_key.
@@ -234,14 +234,18 @@ def _expand_tree(
                 instance._dirty = False
 
                 # Re-render with new state (fallback UI).
-                child_vnode = instance.render()
+                token = current_component.set(instance)
+                try:
+                    child_vnode = instance.render()
+                finally:
+                    current_component.reset(token)
                 expanded = _expand_tree(child_vnode, path, full_key, component_map, app)
                 expanded.component_key = full_key
                 expanded.key = node.key
                 return expanded
             else:
                 # Not our boundary — propagate upwards (stack unwinding).
-                raise e_boundary
+                raise
 
         except Exception as e:
             # ── Error Boundary Traversal ─────────────────────────────────
@@ -297,7 +301,11 @@ def _expand_tree(
     # Return a new VNode with expanded children.
     # Do not mutate the original node so the old tree remains intact for diffing.
     return VNode(
-        tag=node.tag, props=node.props, children=expanded_children, key=node.key
+        tag=node.tag,
+        props=node.props,
+        children=expanded_children,
+        key=node.key,
+        _owner=node._owner,
     )
 
 
@@ -659,8 +667,13 @@ class App:
 
         # ── Expand new subtree ───────────────────────────────────────────
         # Render component and expand the output into an HTML VNode tree.
+        token = current_component.set(instance)
+        try:
+            rendered_vnode = instance.render()
+        finally:
+            current_component.reset(token)
         new_branch = _expand_tree(
-            instance.render(),
+            rendered_vnode,
             path=path,
             parent_key=key,
             component_map=self.component_map,

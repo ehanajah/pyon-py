@@ -35,6 +35,7 @@ def _apply_single_patch(
     root_selector: str,
     path_owner_map: "dict[str, Component]",
     flush_callback: Callable,
+    component_map: "dict[str, Component]",
 ) -> None:
     op   = patch["op"]
     path = patch["path"]
@@ -53,11 +54,14 @@ def _apply_single_patch(
         parent.appendChild(new_el)
 
     elif op == "REMOVE":
-        _get_element_by_path(path, root_selector).remove()
+        el = _get_element_by_path(path, root_selector)
+        _cleanup_dangling_ref(el, component_map)
+        el.remove()
 
     elif op == "REPLACE":
         r_patch = cast("ReplacePatch", patch)
         el = _get_element_by_path(path, root_selector)
+        _cleanup_dangling_ref(el, component_map)
         new_el = _build_dom_element(
             r_patch["node"],
             path_owner_map,
@@ -70,7 +74,19 @@ def _apply_single_patch(
         u_patch = cast("UpdatePropsPatch", patch)
         el = _get_element_by_path(path, root_selector)
         props = u_patch["props"]
-        owner = path_owner_map.get(path)
+        
+        # Try to get the true owner (creator) from the DOM element, fallback to path-based owner
+        if hasattr(el, "hasAttribute") and el.hasAttribute("data-pyon-owner-path"):
+            owner_path = el.getAttribute("data-pyon-owner-path")
+            owner = None
+            if owner_path:
+                for comp in component_map.values():
+                    if comp._dom_path == owner_path:
+                        owner = comp
+                        break
+        else:
+            owner = path_owner_map.get(path)
+            
         for key, val in props.items():
             if val is None:
                 if key in _BOOLEAN_ATTRS:
@@ -104,6 +120,7 @@ def _apply_single_patch(
         mapped_old_indices = {item for item in mapping if isinstance(item, int)}
         for i, old_node in enumerate(old_nodes):
             if i not in mapped_old_indices:
+                _cleanup_dangling_ref(old_node, component_map)
                 old_node.remove()
 
     elif op == "SET_TEXT":
@@ -143,4 +160,19 @@ def apply_patches(
                 if owner is not None:
                     path_owner_map[patch["path"]] = owner
 
-        _apply_single_patch(patch, root_selector, path_owner_map, flush_callback)
+        _apply_single_patch(patch, root_selector, path_owner_map, flush_callback, component_map)
+
+
+def _cleanup_dangling_ref(el: "DOMElement", component_map: "dict[str, Component]"):
+    if hasattr(el, "hasAttribute") and el.hasAttribute("data-pyon-ref"):
+        ref_name = el.getAttribute("data-pyon-ref")
+        owner_path = el.getAttribute("data-pyon-owner-path")
+        owner = None
+        if owner_path:
+            for comp in component_map.values():
+                if comp._dom_path == owner_path:
+                    owner = comp
+                    break
+                    
+        if owner and ref_name and ref_name in owner.refs:
+            del owner.refs[ref_name]

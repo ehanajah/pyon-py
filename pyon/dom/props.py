@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 
 from pyon.browser import ffi
 from pyon.core import dispatch
+from pyon.core.vnode import VNode
 
 if TYPE_CHECKING:
     from pyon.core import Component, DOMElement, Props
@@ -17,8 +18,10 @@ def _apply_props(
         el: "DOMElement", 
         props: "Props", 
         flush_callback: Callable,
-        owner: "Component | None" = None
+        owner: "Component | None" = None,
+        node: VNode | None = None
     ) -> None:
+    true_owner = node._owner if (node is not None and node._owner is not None) else owner
     for key, val in props.items():
         if key == "key":
             continue
@@ -52,5 +55,11 @@ def _apply_props(
             else:
                 proxy = ffi.create_proxy(val)
                 el.addEventListener(event_name, proxy)
+        elif key == "ref" and true_owner is not None:
+            ref_name = str(val)
+            true_owner.refs[ref_name] = el
+
+            el.setAttribute("data-pyon-ref", ref_name)
+            el.setAttribute("data-pyon-owner-path", true_owner._dom_path)
         else:
             el.setAttribute(key, str(val))

@@ -46,7 +46,7 @@ def _build_dom_element(
 ) -> "DOMElement":
     owner = path_owner_map.get(current_path)
     el: DOMElement = js.document.createElement(str(node.tag))
-    _apply_props(el, node.props, flush_callback=flush_callback, owner=owner)
+    _apply_props(el, node.props, flush_callback=flush_callback, owner=owner, node=node)
     for i, child in enumerate(node.children):
         child_path = f"{current_path}.{i}"
         if isinstance(child, VNode):
