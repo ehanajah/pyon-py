@@ -1,7 +1,9 @@
 import click
 
+from .add import add
 from .dev import dev
 from .init import init
+from .remove import remove
 
 
 @click.group()
@@ -10,6 +12,8 @@ def cli():
 
 cli.add_command(dev)
 cli.add_command(init)
+cli.add_command(add)
+cli.add_command(remove)
 
 if __name__ == "__main__":
     cli()

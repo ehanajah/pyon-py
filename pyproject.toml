@@ -7,7 +7,7 @@ name            = "pyon-py"
 version         = "0.1.0"
 description     = "Python VDOM Framework on Pyodide & WebAssembly"
 requires-python = ">=3.11"
-dependencies    = ["aiohttp>=3.9", "watchfiles>=0.21", "click>=8.0"]
+dependencies    = ["aiohttp>=3.9", "watchfiles>=0.21", "click>=8.0", "tomlkit>=0.15"]
 
 [project.scripts]
 pyon = "pyon.cli.main:cli"
