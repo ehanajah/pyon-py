@@ -110,6 +110,7 @@ async function initPyOnPy() {{
         setStatus("Memuat Pyodide " + PYODIDE_VERSION + "...");
         window.__pyodide = await loadPyodide();
         window.__pyodide.setDebug(true);
+        window.__pyodide.runPython('import os; os.environ["PYON_ENV"] = "development"');
 
         // Add root virtual FS to sys.path
         window.__pyodide.runPython(`

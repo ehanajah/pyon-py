@@ -2,6 +2,9 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from pyon.browser import js
+from pyon.core import (
+    DOMElement,
+)
 
 from .props import _BOOLEAN_ATTRS, _apply_props
 from .render import _build_dom_element, _find_owner, build_path_owner_map
@@ -10,7 +13,6 @@ if TYPE_CHECKING:
     from pyon.core import (
         Component,
         CreatePatch,
-        DOMElement,
         Node,
         Patch,
         ReorderChildrenPatch,
