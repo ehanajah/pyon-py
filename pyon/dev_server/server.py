@@ -107,7 +107,7 @@ async function initPyOnPy() {{
     const setStatus = (msg) => {{ if (status) status.textContent = msg; }};
 
     try {{
-        setStatus("Memuat Pyodide " + PYODIDE_VERSION + "...");
+        setStatus("Loading Pyodide " + PYODIDE_VERSION + "...");
         window.__pyodide = await loadPyodide();
         window.__pyodide.setDebug(true);
         window.__pyodide.runPython('import os; os.environ["PYON_ENV"] = "development"');
