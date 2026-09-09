@@ -247,17 +247,18 @@ Dev server menambahkan route baru untuk menyajikan wheel dari cache lokal:
 async def handle_packages(request: web.Request) -> web.Response | web.FileResponse:
     filename = request.match_info["filename"]
     target = (PROJECT_ROOT / "packages_cache" / filename).resolve()
-    
+
     # Security: prevent path traversal
     try:
         target.relative_to(PROJECT_ROOT / "packages_cache")
     except ValueError:
         return web.Response(status=403, text="Forbidden")
-    
+
     if not target.exists():
         return web.Response(status=404, text=f"Package not found: {filename}")
-    
+
     return web.FileResponse(target)
+
 
 # Route registration:
 app.router.add_get("/packages/{filename}", handle_packages)
@@ -356,25 +357,29 @@ pyon download
 # di server.py
 PYODIDE_LOCAL_DIR = PROJECT_ROOT / "pyodide_local"
 
+
 async def handle_pyodide(request: web.Request) -> web.Response | web.FileResponse:
     rel_path = request.match_info["path"]
     target = (PYODIDE_LOCAL_DIR / rel_path).resolve()
-    
+
     # Security: prevent path traversal
     try:
         target.relative_to(PYODIDE_LOCAL_DIR)
     except ValueError:
         return web.Response(status=403, text="Forbidden")
-    
+
     if not target.exists():
         return web.Response(status=404, text=f"Pyodide file not found: {rel_path}")
-    
+
     # WASM files need correct MIME type
     content_type = None
     if target.suffix == ".wasm":
         content_type = "application/wasm"
-    
-    return web.FileResponse(target, headers={"Content-Type": content_type} if content_type else {})
+
+    return web.FileResponse(
+        target, headers={"Content-Type": content_type} if content_type else {}
+    )
+
 
 # Route registration (SEBELUM catch-all static handler):
 app.router.add_get("/pyodide/{path:.+}", handle_pyodide)
