@@ -28,7 +28,8 @@ def _get_element_by_path(path: str, root_selector: str) -> "DOMElement":
     parts = path.split(".")
     for part in parts[1:]:
         el = el.childNodes[int(part)]
-    return el # type: ignore
+    # Return value is guaranteed to be a DOMElement
+    return cast("DOMElement", el)
 
 
 def _apply_single_patch(
