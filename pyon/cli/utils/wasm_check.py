@@ -10,7 +10,7 @@ class WasmStatus(Enum):
     INCOMPATIBLE = "incompatible"
     UNKNOWN = "unknown"
 
-def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.2") -> tuple[WasmStatus, str]:
+def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.6") -> tuple[WasmStatus, str]:
     try:
         url = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/pyodide-lock.json"
         req = urllib.request.Request(url, headers={"User-Agent": "PyOn-Py CLI"})
@@ -43,6 +43,6 @@ def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.2") -
         if e.code == 404:
             return WasmStatus.UNKNOWN, f"{package_name} not found on PyPI"
     except Exception as e:
-        return WasmStatus.UNKNOWN, f"Error checking {package_name}: {str(e)}"
+        return WasmStatus.UNKNOWN, f"Error checking {package_name}: {e!s}"
 
     return WasmStatus.INCOMPATIBLE, f"'{package_name}' is possibly incompatible with WASM/Browser environments"
