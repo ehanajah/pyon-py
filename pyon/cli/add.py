@@ -45,6 +45,37 @@ def add(packages, dev):
 
             if status == WasmStatus.BUILTIN:
                 click.secho(msg, fg="green")
+                
+                if doc.get("dev", {}).get("local_pyodide", False):
+                    import json
+                    import urllib.request
+                    lock_file = Path.cwd() / "pyodide_cache" / "pyodide-lock.json"
+                    if lock_file.exists():
+                        try:
+                            with open(lock_file, "r") as f:
+                                lock_data = json.load(f)
+                            packages_dict = lock_data.get("packages", {})
+                            
+                            resolved = set()
+                            queue = [pkg.lower()]
+                            while queue:
+                                p = queue.pop(0)
+                                if p not in resolved and p in packages_dict:
+                                    resolved.add(p)
+                                    queue.extend(packages_dict[p].get("depends", []))
+                                    
+                            click.echo(f"Syncing {len(resolved)} wheels for '{pkg}' to local pyodide_cache...")
+                            for p in resolved:
+                                filename = packages_dict[p]["file_name"]
+                                wheel_path = Path.cwd() / "pyodide_cache" / filename
+                                if not wheel_path.exists():
+                                    wheel_url = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/{filename}"
+                                    sys.stdout.write(f"  Downloading {filename}...\n")
+                                    sys.stdout.flush()
+                                    urllib.request.urlretrieve(wheel_url, wheel_path)
+                        except Exception as e:
+                            click.secho(f"Warning: Failed to sync builtin wheel to pyodide_cache: {e}", fg="yellow")
+                
                 # Skip pip download for builtin packages, Pyodide will handle them
                 continue
 
