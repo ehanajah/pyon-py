@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 
 from .utils.lock_utils import generate_lock_file
-from .utils.toml_utils import add_dependency, get_pyon_toml_path
+from .utils.toml_utils import add_dependency, get_pyon_toml_path, read_pyon_toml
 from .utils.wasm_check import WasmStatus, check_wasm_compatible
 
 
@@ -30,11 +30,14 @@ def add(packages, dev):
     packages_cache_dir = Path.cwd() / "packages_cache"
     lock_path = Path.cwd() / "pyon.lock"
 
+    doc = read_pyon_toml()
+    pyodide_version = doc.get("dev", {}).get("pyodide_version", "314.0.6")
+
     # WASM compatibility check
     if not dev:
         for pkg in packages:
             click.echo(f"Checking WASM compatibility for {pkg}...")
-            status, msg = check_wasm_compatible(pkg)
+            status, msg = check_wasm_compatible(pkg, pyodide_version)
 
             if status == WasmStatus.INCOMPATIBLE:
                 click.secho(msg, fg="red", bold=True)

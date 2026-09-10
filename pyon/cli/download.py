@@ -58,4 +58,81 @@ def download(packages_only, pyodide_only):
                 click.secho("\nProcess cancelled. Some dependencies may depend on C extensions (have no Pure Python wheel).", fg="red")
 
     if do_pyodide:
-        click.echo("\nNot implemented yet.")
+        import json
+        import shutil
+        import tarfile
+        import tempfile
+        import urllib.request
+
+        pyodide_version = doc.get("dev", {}).get("pyodide_version", "314.0.6")
+        pyodide_release = doc.get("dev", {}).get("pyodide_release", "core")
+        pyodide_filename = f"pyodide-core-{pyodide_version}.tar.bz2" if pyodide_release == "core" else f"pyodide-{pyodide_version}.tar.bz2"
+        pyodide_url = f"https://github.com/pyodide/pyodide/releases/download/{pyodide_version}/{pyodide_filename}"
+        cache_dir = Path.cwd() / "pyodide_cache"
+
+        def download_progress(count, block_size, total_size):
+            if total_size > 0:
+                percent = int(count * block_size * 100 / total_size)
+                percent = min(percent, 100)
+                sys.stdout.write(f"\rDownloading Pyodide {pyodide_version}: {percent}%")
+                sys.stdout.flush()
+
+        click.echo("\nFetching Pyodide runtime from GitHub...")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tar_path = Path(tmpdir) / "pyodide.tar.bz2"
+            try:
+                urllib.request.urlretrieve(pyodide_url, tar_path, download_progress)
+                sys.stdout.write("\n")
+
+                click.echo("Extracting Pyodide...")
+                with tarfile.open(tar_path, "r:bz2") as tar:
+                    tar.extractall(tmpdir)
+
+                extracted_dir  = Path(tmpdir) / "pyodide"
+                if not extracted_dir.exists():
+                    click.secho("Failed to locate extracted Pyodide directory.", fg="red", err=True)
+                    sys.exit(1)
+
+                if cache_dir.exists():
+                    shutil.rmtree(cache_dir)
+                shutil.copytree(extracted_dir, cache_dir)
+
+                lock_file = cache_dir / "pyodide-lock.json"
+                if lock_file.exists():
+                    with open(lock_file, "rb") as f:
+                        lock_data = json.load(f)
+                    packages = lock_data.get("packages", {})
+
+                    required = {"micropip", "typing-extensions", "packaging"}
+                    for pkg in doc.get("dependencies", {}).get("packages", []):
+                        if pkg not in required:
+                            required.add(pkg)
+
+                    resolved = set()
+                    queue = list(required)
+                    while queue:
+                        pkg = queue.pop(0)
+                        if pkg not in resolved and pkg in packages:
+                            resolved.add(pkg)
+                            depends = packages[pkg].get("depends", [])
+                            queue.extend(depends)
+
+                    click.echo(f"Fetching {len(resolved)} required built-in wheels (micropip + dependencies)...")
+                    for i, pkg in enumerate(resolved):
+                        filename = packages[pkg]["file_name"]
+                        wheel_url = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/{filename}"
+                        wheel_path = cache_dir / filename
+                        sys.stdout.write(f"\rDownloading {pkg}: {i+1}/{len(resolved)}")
+                        sys.stdout.flush()
+                        urllib.request.urlretrieve(wheel_url, wheel_path)
+                    sys.stdout.write("\n")
+
+                click.secho(f"Successfully cacheh Pyodide in {cache_dir.name}", fg="green")
+
+                if "dev" not in doc:
+                    doc["dev"] = tomlkit.table()
+                doc["dev"]["local_pyodide"] = True
+                write_pyon_toml(doc)
+            except Exception as e:
+                click.secho("\nFailed to download Pyodide.", fg="red", err=True)
+                click.secho(f"Error: {e}", fg="red", err=True)

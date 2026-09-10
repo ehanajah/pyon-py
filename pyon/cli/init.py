@@ -24,10 +24,13 @@ version = "0.1.0"
 [dependencies]
 packages = []
 
+[dev-dependencies]
+packages = []
+
 [dev]
-pyodide_version = "0.314.0"
+pyodide_version = "314.0.6"
+pyodide_release = "core"
 local_pyodide = false
-local_packages = false
 """
     create_file(cwd / "pyon.toml", pyon_toml)
 
@@ -38,8 +41,6 @@ local_packages = false
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PyOn-Py App</title>
-    <!-- Pyodide Loader -->
-    <script src="https://cdn.jsdelivr.net/pyodide/v314.0.2/full/pyodide.js"></script>
     <link rel="stylesheet" href="/src/static/style.css">
 </head>
 <body>

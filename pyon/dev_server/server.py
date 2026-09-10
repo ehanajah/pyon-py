@@ -150,13 +150,32 @@ const PY_FILES = {files_json};
 const PACKAGES = {deps_json};
 const USE_LOCAL_PYODIDE = '{use_local_pyodide}' === 'False' ? false : true;
 const LOCK_PACKAGES = {lock_json};
+const PYODIDE_CDN = "{pyodide_cdn}";
+
+async function loadScript(url) {{
+    return new Promise((resolve, reject) => {{
+        if (document.querySelector(`script[src="${{url}}"]`)) {{
+            resolve();
+            return;
+        }}
+        const script = document.createElement("script");
+        script.src = url;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    }});
+}}
 
 async function initPyOnPy() {{
     const status = document.getElementById("pyon-py-status");
     const setStatus = (msg) => {{ if (status) status.textContent = msg; }};
 
     try {{
-        setStatus("Loading Pyodide " + PYODIDE_VERSION + "...");
+        setStatus("Fetching Pyodide " + PYODIDE_VERSION + " script...");
+        const pyodideUrl = USE_LOCAL_PYODIDE ? "/pyodide/pyodide.js" : PYODIDE_CDN;
+        await loadScript(pyodideUrl);
+
+        setStatus("Loading Pyodide runtime...");
         window.__pyodide = await loadPyodide();
         window.__pyodide.setDebug(true);
         window.__pyodide.runPython('import os; os.environ["PYON_ENV"] = "development"');
@@ -178,16 +197,12 @@ sys.path.insert(0, "/")
                 try {{
                     await micropip.install(`/packages/${{filename}}`);
                 }} catch (e) {{
-                    console.error(`[PyOnPy] Error installing ${{name}} from local cache. Run 'pyon download' to download wheels.`);
+                    console.error(`[PyOnPy] Error installing ${{name}} from local cache.`);
                 }}
             }}
-            if (!LOCK_PACKAGES["typing_extensions"] && !LOCK_PACKAGES["typing-extensions"]) {{
-                await micropip.install("typing-extensions");
-            }}
-        }} else {{
-            const allPackages = ["typing-extensions"].concat(PACKAGES);
-            await micropip.install(allPackages);
         }}
+        const allPackages = ["typing-extensions"].concat(PACKAGES);
+        await micropip.install(allPackages);
 
         // Fetch all Python files and write them to the virtual FS Pyodide
         setStatus("Loading Python files...");
@@ -347,6 +362,25 @@ async def handle_packages(request: web.Request) -> web.Response | web.FileRespon
 
     return web.FileResponse(target)
 
+
+
+async def handle_pyodide(request: web.Request) -> web.Response | web.FileResponse:
+    """Serve local pyodide from PROJECT_ROOT/pyodide_cache."""
+    filename = request.match_info.get("filename", "")
+    target = (PROJECT_ROOT / "pyodide_cache" / filename).resolve()
+
+    # Security: prevent path traversal (../../etc)
+    try:
+        target.relative_to(PROJECT_ROOT / "pyodide_cache")
+    except ValueError:
+        return web.Response(status=403, text="Forbidden")
+
+    if not target.exists():
+        return web.Response(status=404, text=f"Package not found: {filename}")
+
+    return web.FileResponse(target)
+
+
 async def handle_static(request: web.Request) -> web.Response | web.FileResponse:
     """Serve static files from PROJECT_ROOT."""
     rel_path = request.match_info.get("path", "index.html") or "index.html"
@@ -455,6 +489,7 @@ async def main() -> None:
     app.router.add_get("/__reload", handle_sse)
     app.router.add_get("/pyon/{path:.+}", handle_pyon_framework)
     app.router.add_get("/packages/{filename}", handle_packages)
+    app.router.add_get("/pyodide/{filename:.*}", handle_pyodide)
     app.router.add_get("/", handle_static)
     app.router.add_get("/{path:.+}", handle_static)
 

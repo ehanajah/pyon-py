@@ -11,15 +11,28 @@ class WasmStatus(Enum):
     UNKNOWN = "unknown"
 
 def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.6") -> tuple[WasmStatus, str]:
-    try:
-        url = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/pyodide-lock.json"
-        req = urllib.request.Request(url, headers={"User-Agent": "PyOn-Py CLI"})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            repodata = json.loads(response.read())
-            if package_name.lower() in repodata.get("packages", {}):
-                return WasmStatus.BUILTIN, f"{package_name} is a built-in package in Pyodide {pyodide_version}"
-    except Exception:  # noqa: S110
-        pass
+    from pathlib import Path
+    repodata = None
+    
+    local_lock = Path.cwd() / "pyodide_cache" / "pyodide-lock.json"
+    if local_lock.exists():
+        try:
+            with open(local_lock, "r") as f:
+                repodata = json.load(f)
+        except Exception:  # noqa: BLE001, S110
+            pass
+
+    if not repodata:
+        try:
+            url = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/pyodide-lock.json"
+            req = urllib.request.Request(url, headers={"User-Agent": "PyOn-Py CLI"})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                repodata = json.loads(response.read())
+        except Exception:  # noqa: BLE001, S110
+            pass
+            
+    if repodata and package_name.lower() in repodata.get("packages", {}):
+        return WasmStatus.BUILTIN, f"{package_name} is a built-in package in Pyodide {pyodide_version}"
 
     try:
         url = f"https://pypi.org/pypi/{package_name}/json"
