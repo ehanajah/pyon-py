@@ -34,6 +34,24 @@ local_pyodide = false
 """
     create_file(cwd / "pyon.toml", pyon_toml)
 
+    # .gitignore
+    gitignore_content = """# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+
+# PyOn-Py Caches
+packages_cache/
+pyodide_cache/
+
+# IDE
+.vscode/
+.idea/
+"""
+    create_file(cwd / ".gitignore", gitignore_content)
+
     # index.html
     index_html = """<!DOCTYPE html>
 <html lang="en">
