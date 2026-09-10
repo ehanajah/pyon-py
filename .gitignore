@@ -11,6 +11,9 @@ venv/
 env/
 *.so
 
+!pyon/env/
+!pyon/env/**
+
 # Node.js / npm
 node_modules/
 package-lock.json
