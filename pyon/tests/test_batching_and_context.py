@@ -11,7 +11,7 @@ from pyon.core import App
 # Mock dom so tests can execute without browser DOM / Pyodide runtime
 sys.modules['pyon.dom'] = type('MockDOM', (), {
     'full_render': lambda *args, **kwargs: None,
-    'apply_patches': lambda *args, **kwargs: None
+    'apply_patches': lambda *args, **kwargs: None, 'inject_scoped_css': lambda *args, **kwargs: None
 })()
 
 

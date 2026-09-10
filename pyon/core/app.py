@@ -78,6 +78,16 @@ def _check_sibling_keys(children: Children):
         )
 
 
+def _apply_css_scope(node: VNode, scope_id: str) -> None:
+    node.props[f"data-{scope_id}"] = ""
+
+    for child in node.children:
+        if isinstance(child, VNode):
+            if isinstance(child.tag, str):
+                _apply_css_scope(child, scope_id)
+            else:
+                child.props[f"data-{scope_id}"] = ""
+
 def _expand_tree(
     node: VNode,
     path: str,
@@ -204,6 +214,14 @@ def _expand_tree(
             token = current_component.set(instance)
             try:
                 child_vnode = instance.render()
+
+                for prop_name in node.props:
+                    if prop_name.startswith("data-v-"):
+                        child_vnode.props[prop_name] = ""
+
+                if hasattr(type(instance), "scope_id") and type(instance).scope_id:
+                    _apply_css_scope(child_vnode, type(instance).scope_id)
+
             finally:
                 current_component.reset(token)
                 
@@ -588,9 +606,15 @@ class App:
             ValueError: If the root component does not have a ``key`` prop
                 (caught in ``_expand_tree()``).
         """
-        from pyon.dom import full_render
+        from pyon.core import CSSManager
+        from pyon.dom import full_render, inject_scoped_css
 
         self.selector = selector
+
+        # Inject scoped CSS from CSSManager
+        css_registry = CSSManager.get_all()
+        if css_registry:
+            inject_scoped_css(css_registry)
 
         # Create a temporary VNode for the root component.
         # Default key = class name (e.g., "TodoApp").

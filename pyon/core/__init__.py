@@ -1,5 +1,6 @@
 from .app import App, ErrorCaughtByBoundary, _expand_tree, create_app, teardown
 from .component import BaseProps, Component
+from .css import CSSManager
 from .differ import (
     CreatePatch,
     Patch,
@@ -17,6 +18,7 @@ from .vnode import Props, VNode, h
 __all__ = [
     "App",
     "BaseProps",
+    "CSSManager",
     "Component",
     "CreatePatch",
     "DOMElement",

@@ -1,23 +1,19 @@
 """
 Tests for Coroutine Dispatcher, Microtask Batching, and Stale Unmount Protection.
 """
-import sys
 import asyncio
+import sys
 from pathlib import Path
-from typing import Optional
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Mock dom so tests can execute without browser DOM / Pyodide runtime
 sys.modules['pyon.dom'] = type('MockDOM', (), {
     'full_render': lambda *args, **kwargs: None,
-    'apply_patches': lambda *args, **kwargs: None
+    'apply_patches': lambda *args, **kwargs: None, 'inject_scoped_css': lambda *args, **kwargs: None
 })()
 
-from pyon.core import App
-from pyon.core import Component
-from pyon.core import h
+from pyon.core import App, Component, h
 
 
 def test_async_lifecycle_on_mount() -> None:

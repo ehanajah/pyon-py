@@ -3,10 +3,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from pyon.core import Component, BaseProps
-from pyon.core import h
-from pyon.core import App
-import pytest
+
+from pyon.core import App, BaseProps, Component, h
+
 
 class ErrorProps(BaseProps):
     should_crash: bool
@@ -41,7 +40,7 @@ def test_error_boundary_and_slot_pattern():
     app = App(RootComponent)
     # Mock full_render because we just want to test internal tree expansion
     import sys
-    sys.modules['pyon.dom'] = type('MockDOM', (), {'full_render': lambda *args, **kwargs: None, 'apply_patches': lambda *args, **kwargs: None})()
+    sys.modules['pyon.dom'] = type('MockDOM', (), {'full_render': lambda *args, **kwargs: None, 'apply_patches': lambda *args, **kwargs: None, 'inject_scoped_css': lambda *args, **kwargs: None})()
     
     app.mount("#app")
     

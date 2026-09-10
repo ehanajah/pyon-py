@@ -23,6 +23,7 @@ Usage example::
 
 from __future__ import annotations
 
+import hashlib
 from collections import deque
 from collections.abc import Callable, Coroutine, Mapping
 from typing import (
@@ -38,6 +39,8 @@ from typing import (
 from typing_extensions import TypeVar
 
 from pyon.browser._protocol.http import AbortController
+
+from .css import CSSManager
 
 if TYPE_CHECKING:
     # Import VNode only during type-checking to avoid circular imports.
@@ -148,6 +151,8 @@ class Component(Generic[PropsT, StateT]):
     _contexts: dict[str, Any]  # stores context providers for this component
     _abort_controller: AbortController | None
     refs: dict[str, Any]
+    styles: str = ""
+    scope_id: str = ""
 
     @property
     def events(self) -> dict[str, Callable]:
@@ -476,6 +481,11 @@ class Component(Generic[PropsT, StateT]):
                 f"Use setup() instead for state initialization and context access.",
                 stacklevel=2,
             )
+
+        if cls.styles:
+            hash_str = hashlib.md5(f"{cls.__module__}.{cls.__name__}".encode()).hexdigest()[:7]
+            cls.scope_id = f"v-{hash_str}"
+            CSSManager.register(cls.scope_id, cls.styles)
 
     @final
     def _get_abort_signal(self) -> Any:
