@@ -10,7 +10,7 @@ class WasmStatus(Enum):
     INCOMPATIBLE = "incompatible"
     UNKNOWN = "unknown"
 
-def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.6") -> tuple[WasmStatus, str]:
+def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.6") -> tuple[WasmStatus, str, str]:
     from pathlib import Path
     repodata = None
     
@@ -32,7 +32,8 @@ def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.6") -
             pass
             
     if repodata and package_name.lower() in repodata.get("packages", {}):
-        return WasmStatus.BUILTIN, f"{package_name} is a built-in package in Pyodide {pyodide_version}"
+        version = repodata["packages"][package_name.lower()].get("version", "")
+        return WasmStatus.BUILTIN, f"{package_name} is a built-in package in Pyodide {pyodide_version} (version {version})", version
 
     try:
         url = f"https://pypi.org/pypi/{package_name}/json"
@@ -43,19 +44,19 @@ def check_wasm_compatible(package_name: str, pyodide_version: str = "314.0.6") -
             version = pypi_data.get("info", {}).get("version", "")
 
             if not version or version not in releases:
-                return WasmStatus.UNKNOWN, f"Could not determine the latest version of {package_name} from PyPI"
+                return WasmStatus.UNKNOWN, f"Could not determine the latest version of {package_name} from PyPI", ""
 
             for file_info in releases[version]:
                 filename = file_info.get("filename", "")
                 if filename.endswith(("-py3-none-any.whl", "-py2.py3-none-any.whl")):
-                    return WasmStatus.PURE_PYTHON, f"{package_name} is a pure Python package (wheel: {filename})"
+                    return WasmStatus.PURE_PYTHON, f"{package_name} is a pure Python package (wheel: {filename})", version
 
-            return WasmStatus.INCOMPATIBLE, f"{package_name} has C extensions and unavailable at Pyodide {pyodide_version}"
+            return WasmStatus.INCOMPATIBLE, f"{package_name} has C extensions and unavailable at Pyodide {pyodide_version}", ""
 
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return WasmStatus.UNKNOWN, f"{package_name} not found on PyPI"
+            return WasmStatus.UNKNOWN, f"{package_name} not found on PyPI", ""
     except Exception as e:
-        return WasmStatus.UNKNOWN, f"Error checking {package_name}: {e!s}"
+        return WasmStatus.UNKNOWN, f"Error checking {package_name}: {e!s}", ""
 
-    return WasmStatus.INCOMPATIBLE, f"'{package_name}' is possibly incompatible with WASM/Browser environments"
+    return WasmStatus.INCOMPATIBLE, f"'{package_name}' is possibly incompatible with WASM/Browser environments", ""

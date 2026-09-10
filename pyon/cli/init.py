@@ -49,6 +49,9 @@ pyodide_cache/
 # IDE
 .vscode/
 .idea/
+
+# Misc
+.env
 """
     create_file(cwd / ".gitignore", gitignore_content)
 

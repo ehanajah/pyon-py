@@ -47,18 +47,19 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
   - [x] **Fase 1 (Refactoring & CLI):** Membuat direktori `pyon/cli/` berbasis `click` (`dev`, `init`), memindahkan `dev_server`, dan menambahkan `pyproject.toml` dengan entry point `pyon`.
   - [x] **Fase 2 (Isolasi Repo):** Mengekstrak direktori `pyon/` menjadi repositori murni `pyon-py` yang bersih dari kode implementasi/contoh aplikasi.
   - [ ] **Fase 3 (Publikasi PyPI):** Membangun `dist/*` via modul `build` dan mengunggahnya ke TestPyPI lalu PyPI asli (rilis v0.1.0).
-- [ ] **Manajemen Dependensi Dua-Lapisan (Host & Browser):** (Lihat [Spesifikasi Dependensi](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/DEPENDENCY_MANAGEMENT.md))
-  - Implementasi CLI `pyon add` untuk menambahkan paket ke `pyon.toml` (mendukung flag `--dev`).
-  - Implementasi CLI `pyon download` untuk setup environment (download Pyodide lokal & pure Python wheels ke `packages_cache/`).
-  - Generate file `manifest.json` secara otomatis untuk memetakan nama paket ke nama file wheel.
-  - Modifikasi dev server untuk menyajikan rute khusus `GET /packages/<filename>.whl`.
-  - Update `loader.js` untuk membaca `MANIFEST` dan menggunakan `micropip.install` dari server lokal jika `local_packages = true`.
-- [ ] **Local Pyodide & Dependencies (Offline Dev Environment):**
-  - Struktur `pyon.toml` terpusat sebagai satu sumber kebenaran (menggunakan `tomllib` Python 3.11+).
-  - Skrip pengunduh mandiri `dev_server/download_pyodide.py` untuk mengunduh runtime Pyodide ke localhost.
-- [ ] **`ref` untuk Akses DOM Langsung:**
-  - Menambahkan dukungan kamus referensi `self.refs = {}` pada komponen kelas.
-  - Pembungkus jembatan di `pyodide_impl` secara otomatis menyambungkan elemen DOM asli ke dalam `owner.refs["id_input"]` apabila VNode mendeklarasikan prop `"ref": "id_input"`. Sangat penting untuk fokus elemen (`input.focus()`), pemetaan dimensi, dan integrasi library bagan/grafik pihak ketiga (Chart.js / Canvas).
+- [x] **Manajemen Dependensi Dua-Lapisan (Host & Browser):** (Lihat [Spesifikasi Dependensi](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/DEPENDENCY_MANAGEMENT.md))
+  - [x] Implementasi CLI `pyon add` untuk menambahkan paket ke `pyon.toml` (mendukung flag `--dev` dan menjaring *transitive C-extension*).
+  - [x] Implementasi CLI `pyon remove` yang menyertakan *pruning* pada `packages_cache` dan *lock file*.
+  - [x] Generate file `pyon.lock` secara otomatis untuk memetakan nama paket ke nama file wheel yang di-*cache*.
+  - [x] Modifikasi dev server untuk menyajikan rute statis terproteksi `GET /packages/<filename>.whl`.
+  - [x] Update `loader.js` untuk membaca `LOCK_PACKAGES` dan menggunakan `micropip.install` dari server lokal secara prioritas.
+- [x] **Local Pyodide & Dependencies (Offline Dev Environment):**
+  - [x] Struktur `pyon.toml` terpusat sebagai satu sumber kebenaran (menggunakan `tomllib` Python 3.11+).
+  - [x] Kemampuan CLI `pyon download --pyodide-only` untuk menarik *Pyodide Core Runtime* + dependensi bawaan (seperti *numpy*) yang diselesaikan secara presisi (menggunakan `pyodide-lock.json`) dan di-*cache* ke direktori `pyodide_cache/`.
+  - [x] Otomasi generator `.gitignore` pada `pyon init` untuk mencegah direktori *cache* masuk ke sistem kontrol versi.
+- [x] **`ref` untuk Akses DOM Langsung:**
+  - [x] Menambahkan dukungan kamus referensi `self.refs = {}` pada komponen kelas.
+  - [x] Pembungkus jembatan di `pyodide_impl` secara otomatis menyambungkan elemen DOM asli ke dalam `owner.refs["id_input"]` apabila VNode mendeklarasikan prop `"ref": "id_input"`. Sangat penting untuk fokus elemen (`input.focus()`), pemetaan dimensi, dan integrasi library bagan/grafik pihak ketiga (Chart.js / Canvas).
 
 ---
 

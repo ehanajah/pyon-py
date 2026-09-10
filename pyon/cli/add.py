@@ -33,21 +33,30 @@ def add(packages, dev):
     doc = read_pyon_toml()
     pyodide_version = doc.get("dev", {}).get("pyodide_version", "314.0.6")
 
+    packages_to_install = []
+    
     # WASM compatibility check
     if not dev:
         for pkg in packages:
             click.echo(f"Checking WASM compatibility for {pkg}...")
-            status, msg = check_wasm_compatible(pkg, pyodide_version)
+            status, msg, version = check_wasm_compatible(pkg, pyodide_version)
+            pkg_req = f"{pkg}=={version}" if version else pkg
+            packages_to_install.append(pkg_req)
 
-            if status == WasmStatus.INCOMPATIBLE:
+            if status == WasmStatus.BUILTIN:
+                click.secho(msg, fg="green")
+                # Skip pip download for builtin packages, Pyodide will handle them
+                continue
+
+            elif status == WasmStatus.INCOMPATIBLE:
                 click.secho(msg, fg="red", bold=True)
                 click.confirm(f"'{pkg}' may not work in WASM/browser environments. Do you want to continue adding it?", abort=True)
 
             elif status == WasmStatus.UNKNOWN:
                 click.secho(msg, fg="yellow")
 
-            else:
-                click.echo(f"Testing download Pure Python wheels for '{pkg}' with dependencies...")
+            if status == WasmStatus.PURE_PYTHON or status == WasmStatus.UNKNOWN:
+                click.echo(f"Testing download Pure Python wheels for '{pkg_req}' with dependencies...")
 
                 with tempfile.TemporaryDirectory() as temp_dir:
                     cmd = [
@@ -56,13 +65,13 @@ def add(packages, dev):
                         "--platform", "any",
                         "--python-version", "3.11",
                         "-d", temp_dir,
-                        pkg 
+                        pkg_req 
                     ]
 
                     result = subprocess.run(cmd, check=False, capture_output=True, text=True)
 
                     if result.returncode != 0:
-                        click.secho(f"Failed: '{pkg}' or its transitive dependencies depend on C extension (has no pure python wheel).", fg="red")
+                        click.secho(f"Failed: '{pkg_req}' or its transitive dependencies depend on C extension (has no pure python wheel).", fg="red")
                         click.echo("Use --dev argument if only for development usage.")
                         sys.exit(1)
 
@@ -72,17 +81,19 @@ def add(packages, dev):
                         if not target_file.exists():
                             shutil.copy(wheel_file, target_file)
 
-                    click.secho(f"'{pkg}' is validated and cached at {packages_cache_dir}", fg="green")
+                    click.secho(f"'{pkg_req}' is validated and cached at {packages_cache_dir}", fg="green")
 
         if packages_cache_dir.exists() and any(packages_cache_dir.iterdir()):
             generate_lock_file(packages_cache_dir, lock_path)
+    else:
+        packages_to_install = list(packages)
 
     # Install packages using pip
-    click.echo(f"Installing packages: {', '.join(packages)}...")
-    result = subprocess.run([sys.executable, "-m", "pip", "install", *packages], check=False)
+    click.echo(f"Installing packages: {', '.join(packages_to_install)}...")
+    result = subprocess.run([sys.executable, "-m", "pip", "install", *packages_to_install], check=False)
 
     if result.returncode != 0:
-        click.secho("Failed to install pacakges via pip", fg="red", err=True)
+        click.secho("Failed to install packages via pip", fg="red", err=True)
         sys.exit(1)
 
     for pkg in packages:
