@@ -248,8 +248,6 @@ class Component(Generic[PropsT, StateT]):
                 def handle_click(self):
                     self.set_state({"count": self._state["count"] + 1})
         """
-        if not self._mounted:
-            return
         
         # Wrap state update with closure and add it into self._updates for batch state update and render
         def update() -> None:

@@ -108,9 +108,9 @@ def test_microtask_batching_in_loop() -> None:
 
 
 def test_stale_unmount_guard() -> None:
-    """Verifies that calling set_state on an unmounted component is ignored,
-
-    preventing memory leaks or errors from delayed asynchronous responses.
+    """Verifies that calling set_state on an unmounted component is ignored by
+    the orchestrator (App.flush_updates), preventing delayed asynchronous responses
+    from causing crashes.
     """
     class Dummy(Component):
         def setup(self) -> None:
@@ -119,17 +119,31 @@ def test_stale_unmount_guard() -> None:
         def render(self):
             return h("div")
 
-    comp = Dummy()
-    comp.setup()
-    comp._mounted = True  # Simulate active mounted component
+    class Root(Component):
+        def setup(self):
+            self._state = {"show": True}
+        def render(self):
+            return h(Dummy, {"key": "dummy"}) if self._state["show"] else h("span")
 
-    # Simulate component unmount (e.g. removed from DOM during reconciliation)
-    comp._invoke_on_unmount()
-    assert comp._mounted is False
+    app = App(Root)
+    app.mount("#app")
+
+    dummy = app.component_map.get("Root.dummy")
+    assert dummy is not None
+    assert dummy._mounted is True
+
+    # Simulate component unmount (removed from DOM during reconciliation)
+    root = app.component_map.get("Root")
+    root.set_state({"show": False})
+    app.flush_updates()
+
+    assert dummy._mounted is False
 
     # Attempt to call set_state on the unmounted instance
-    comp.set_state({"alive": False})
+    dummy.set_state({"alive": False})
 
-    # Guard should immediately block the update
-    assert comp._dirty is False
-    assert comp._state["alive"] is True
+    # The update is queued, but App.flush_updates() will discard it
+    app.flush_updates()
+    
+    # The closure in _updates is never executed, so the state remains unmodified
+    assert dummy._state["alive"] is True
