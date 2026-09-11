@@ -29,6 +29,7 @@ from collections.abc import Callable, Coroutine, Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Generic,
     TypeAlias,
     TypedDict,
@@ -39,6 +40,8 @@ from typing import (
 from typing_extensions import TypeVar
 
 from pyon.browser._protocol.http import AbortController
+from pyon.core.bus import EventEmitter
+from pyon.store import Store
 
 from .css import CSSManager
 
@@ -151,8 +154,9 @@ class Component(Generic[PropsT, StateT]):
     _contexts: dict[str, Any]  # stores context providers for this component
     _abort_controller: AbortController | None
     refs: dict[str, Any]
-    styles: str = ""
-    scope_id: str = ""
+    _store_cleanups: list[Callable[[], None]]
+    styles: ClassVar[str] = ""
+    scope_id: ClassVar[str] = ""
 
     @property
     def events(self) -> dict[str, Callable]:
@@ -199,6 +203,7 @@ class Component(Generic[PropsT, StateT]):
         self._contexts = {}
         self._abort_controller = None
         self.refs = {}
+        self._store_cleanups = []
 
     def setup(self) -> None:
         """Lifecycle hook called once after the component is instantiated and
@@ -270,6 +275,23 @@ class Component(Generic[PropsT, StateT]):
         self._dirty = True
 
         self._enqueue_dirty()
+
+    @final
+    def use_store(self, store: Store) -> Store:
+        """
+        Subscribe to a store and schedule a re-render when the store changes.
+        """
+        unsubscribe = store.subscribe(self._schedule_update)
+        self._store_cleanups.append(unsubscribe)
+        return store
+
+    @final
+    def use_event(self, bus: EventEmitter, event_name: str, listener: Callable[[], None]) -> None:
+        """
+        Subscribe to an event bus. Automatically unsubscribe when the component is unmounted.
+        """
+        unsubscribe = bus.on(event_name, listener)
+        self._store_cleanups.append(unsubscribe)
 
     @final
     def execute_update(self) -> None:
@@ -394,6 +416,11 @@ class Component(Generic[PropsT, StateT]):
 
         result = self.on_unmount()
         self._mounted = False
+
+        for cleanup in self._store_cleanups:
+            cleanup()
+        self._store_cleanups.clear()
+
         for cleanup in self._cleanups:
             cleanup()
         self._cleanups.clear()

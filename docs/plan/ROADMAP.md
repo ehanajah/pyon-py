@@ -66,12 +66,19 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 ## Prioritas 2: Menengah (Developer Experience / DX & Kemampuan Inti)
 *Fokus pada peningakatan produktivitas pengembang, arsitektur data besar, dan kecepatan iterasi lokal.*
 
+- [x] **CSS Scoping Berbasis Hash ID:**
+  - Pembuatan isolasi gaya tanpa parser eksternal yang berat. Komponen mendaftarkan string `styles` ke `CSSManager` (ter-*hash* dengan `scope_id` seperti `v-a1b2c3d`).
+  - Pemilahan CSS dieksekusi secara native menggunakan DOM CSSOM API dan atribut `data-v-...` dipropagasi secara transparan ke elemen akar anak komponen (gaya Vue).
+- [x] **Global State Management (Store / Signals):**
+  - Pembuatan modul manajemen status global reaktif yang dapat diinjeksi atau dibagikan antar komponen di luar lingkup pewarisan pohon `Context API`, mirip dengan Vuex/Pinia atau sistem *Signals*.
+- [x] **EventEmitter & Generic Event Bus:**
+  - Pembuatan sistem *Pub-Sub* murni tanpa status (`pyon/core/bus.py`) untuk memfasilitasi komunikasi antar komponen dan integrasi ekstensi pihak ketiga secara aman, lengkap dengan pembersihan listener otomatis `use_event` saat komponen di-*unmount*.
+- [ ] **Template Syntax & Alternatif Penulisan UI:**
+  - Penjajakan dukungan sintaksis deklaratif opsional berbasis string HTML + Jinja-like yang di-parse menjadi VNode saat runtime.
 - [ ] **Sistem Client Session HTTP Terpusat:**
   - Pembuatan kelas `HTTPClient` (mirip `httpx.Client`) untuk menyimpan konfigurasi *stateful* berulang seperti `base_url`, `default_headers`, atau *Auth Tokens*.
 - [ ] **Server-Sent Events (SSE) & WebSockets:**
   - Sub-modul `pyon/http/sse.py` dan `ws.py` untuk mengelola protokol *real-time* dan *streaming*, lengkap dengan status *re-render* yang reaktif.
-- [ ] **CSS Scoping Sederhana:**
-  - Isolasi gaya presentasi tanpa kompleksitas Shadow DOM melalui injeksi otomatis awalan (*prefix*) nama kelas komponen (misal: `"card-body"` dikomputasi menjadi `"Card-card-body"`), mencegah tabrakan kelas CSS (*style collisions*).
 
 ---
 
@@ -86,7 +93,5 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
   - Alternatif lebih sederhana: *snapshot* state sebelum restart, lalu *restore* ke instance baru yang memiliki `component_key` yang sama.
 - [ ] **Package & Module System Resolution:**
   - Penyempurnaan manajemen hierarki folder dan modul untuk proyek berskala besar di atas sistem berkas virtual Pyodide TANPA mengandalkan daftar impor linear kaku di `loader.js`.
-- [ ] **Template Syntax & Alternatif Penulisan UI:**
-  - Penjajakan dukungan sintaksis deklaratif opsional (seperti markup bergaya JSX atau templating HTML transparan) selain penggunaan fungsi murni `h()`.
 - [ ] **`wasm_impl.py` (Native WASM / MicroPython Bridge):**
   - Eksplorasi backend jembatan eksekusi alternatif selain Pyodide (misalnya MicroPython untuk WASM atau Python native WASM runtime masa depan) untuk meringankan konsumsi memori dan ukuran bodi runtime.

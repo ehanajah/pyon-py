@@ -20,6 +20,8 @@ sys.modules["pyon.browser"] = mock_browser
 # Import router setelah mock disuntikkan
 from pyon.router.utils import get_query_params, match_route
 from pyon.router.core import Router
+import pyon.router.core
+pyon.router.core.js = mock_js
 
 # =============================================================================
 # Test Router Utils (Parsing URL)

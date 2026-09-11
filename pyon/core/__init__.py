@@ -1,4 +1,5 @@
 from .app import App, ErrorCaughtByBoundary, _expand_tree, create_app, teardown
+from .bus import EventEmitter
 from .component import BaseProps, Component
 from .css import CSSManager
 from .differ import (
@@ -25,6 +26,7 @@ __all__ = [
     "DOMTextNode",
     "ErrorCaughtByBoundary",
     "Event",
+    "EventEmitter",
     "Node",
     "Patch",
     "Props",
