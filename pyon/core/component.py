@@ -41,6 +41,7 @@ from typing_extensions import TypeVar
 
 from pyon.browser._protocol.http import AbortController
 from pyon.core.bus import EventEmitter
+from pyon.core.template import ElementNode
 from pyon.store import Store
 
 from .css import CSSManager
@@ -155,6 +156,8 @@ class Component(Generic[PropsT, StateT]):
     _abort_controller: AbortController | None
     refs: dict[str, Any]
     _store_cleanups: list[Callable[[], None]]
+
+    _ast_cache: ClassVar[ElementNode]
     styles: ClassVar[str] = ""
     scope_id: ClassVar[str] = ""
 
@@ -314,30 +317,39 @@ class Component(Generic[PropsT, StateT]):
         # re-render -> diff -> DOM patch.
         self._schedule_update()
 
-    def render(self) -> VNode:
-        """Returns a VNode tree representing the component's UI.
+    def render(self) -> VNode | str:
+        """Returns a VNode tree or HTML template string representing the component's UI.
 
         This method **must be overridden** by every subclass. It is called
         by ``_expand_tree()`` in ``core/app.py`` during the initial render,
         and by ``App._update_from_key()`` during re-renders caused by state changes.
 
         Returns:
-            VNode: The virtual DOM tree describing the current visual state
-                of the component.
+            VNode | str: The virtual DOM tree or a string template describing the current visual state.
 
         Raises:
             NotImplementedError: If the subclass does not override this method.
-
-        Example:
-            ::
-
-                def render(self) -> VNode:
-                    return h("div", {"class": "card"}, [
-                        h("h2", {}, [self.props["title"]]),
-                        h("p", {}, [self._state["content"]]),
-                    ])
         """
         raise NotImplementedError
+
+    @final
+    def _render(self) -> VNode:
+        """Internal render wrapper that handles string templates."""
+        raw_result = self.render()
+        if isinstance(raw_result, str):
+            cls = type(self)
+            if cls.__dict__.get("_ast_cache") is None:
+                from pyon.core.template import parse, tokenize
+                cls._ast_cache = parse(tokenize(raw_result))
+            
+            from pyon.core.template import render_element
+            vnode_dict_or_list = render_element(cls._ast_cache, self, {})
+            if isinstance(vnode_dict_or_list, list):
+                from pyon.core.vnode import h
+                return h("#fragment", {}, vnode_dict_or_list) # Or standard wrapper
+            return vnode_dict_or_list
+        return raw_result
+
 
     def on_mount(self) -> None | Coroutine[Any, Any, None]:
         """Lifecycle hook called once after the component is first created.

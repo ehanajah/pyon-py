@@ -213,7 +213,7 @@ def _expand_tree(
             # → that <div> remains at path "0.1".
             token = current_component.set(instance)
             try:
-                child_vnode = instance.render()
+                child_vnode = instance._render()
 
                 for prop_name in node.props:
                     if prop_name.startswith("data-v-"):
@@ -254,7 +254,7 @@ def _expand_tree(
                 # Re-render with new state (fallback UI).
                 token = current_component.set(instance)
                 try:
-                    child_vnode = instance.render()
+                    child_vnode = instance._render()
                 finally:
                     current_component.reset(token)
                 expanded = _expand_tree(child_vnode, path, full_key, component_map, app)
@@ -700,7 +700,7 @@ class App:
         # Render component and expand the output into an HTML VNode tree.
         token = current_component.set(instance)
         try:
-            rendered_vnode = instance.render()
+            rendered_vnode = instance._render()
         finally:
             current_component.reset(token)
         new_branch = _expand_tree(
