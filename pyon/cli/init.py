@@ -96,7 +96,7 @@ from src.pages.Index import Index
 
 class App(Component):
     def render(self):
-        return h("div", {"class": "app-container"}, [h(Index, {})])
+        return "<div class='app-container'><Index /></div>"
 
 """
     create_file(cwd / "src/App.py", src_app_py)
@@ -126,19 +126,14 @@ from src.components.Card import Card
 
 class Index(Component):
     def render(self):
-        return h(
-            "div",
-            {},
-            [
-                h("h1", {"style": "text-align: center;"}, ["Welcome to PyOn-Py"]),
-                h(
-                    Card,
-                    {"title": "Hello World!"},
-                    ["This is a minimalistic PyOn-Py template."],
-                ),
-            ],
-        )
-
+        return \"""
+            <div>
+                <h1 style="text-align: center;">Welcome to PyOn-Py</h1>
+                <Card title="Hello World!">
+                    This is a minimalistic PyOn-Py template.
+                </Card>
+            </div>
+        \"""
 """
     create_file(cwd / "src/pages/Index.py", src_pages_index_py)
 
@@ -148,15 +143,12 @@ class Index(Component):
 
 class Card(Component):
     def render(self):
-        return h(
-            "div",
-            {"class": "card"},
-            [
-                h("h2", {}, [self.props.get("title", "Card Title")]),
-                h("div", {}, self.props.get("children", [])),
-            ],
-        )
-
+        return \"""
+            <div class="card">
+                <h2>{{self.props.get("title", "Card Title")}}</h2>
+                <div>{{self.props.get("children", [])}}</div>
+            </div>
+        \"""
 """
     create_file(cwd / "src/components/Card.py", src_components_card_py)
 

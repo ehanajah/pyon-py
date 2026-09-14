@@ -168,6 +168,10 @@ def render_props(props: dict, instance: Any, local_scope: dict) -> dict:
             resolved[k] = eval_expr(v, instance, local_scope)
         else:
             if isinstance(v, str) and "{{" in v:
+                v = v.strip()
+                if v.startswith("{{") and v.endswith("}}") and v.count("{{") == 1:
+                    resolved[k] = eval_expr(v[2:-2].strip(), instance, local_scope)
+                    continue
                 v = INTERP_IN_ATTR_RE.sub(
                     lambda m: str(eval_expr(m.group(1).strip(), instance, local_scope)), 
                     v
@@ -180,7 +184,13 @@ def render_children(nodes: list[Node], instance: Any, local_scope: dict) -> Iter
         if isinstance(node, TextNode):
             yield node.text
         elif isinstance(node, InterpolationNode):
-            yield str(eval_expr(node.expr, instance, local_scope))
+            val = eval_expr(node.expr, instance, local_scope)
+            if isinstance(val, list):
+                yield from val
+            elif isinstance(val, VNode):
+                yield val
+            else:
+                yield str(val)
         elif isinstance(node, ElementNode):
             res = render_element(node, instance, local_scope)
             if isinstance(res, list):
