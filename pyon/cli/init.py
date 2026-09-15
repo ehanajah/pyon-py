@@ -120,7 +120,7 @@ class App(Component):
     create_file(cwd / "src/static/style.css", style_css)
 
     # src/pages/Index.py
-    src_pages_index_py = """from pyon.core import Component, h
+    src_pages_index_py = """from pyon.core import Component
 from src.components.Card import Card
 
 
@@ -152,7 +152,7 @@ class Index(Component):
     create_file(cwd / "src/pages/Index.py", src_pages_index_py)
 
     # src/components/Card.py
-    src_components_card_py = """from pyon.core import Component, h
+    src_components_card_py = """from pyon.core import Component
 
 
 class Card(Component):
