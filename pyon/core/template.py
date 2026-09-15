@@ -98,9 +98,12 @@ def parse(tokens: list[Token]) -> ElementNode:
         while pos < len(tokens) and tokens[pos].type not in stop_types:
             tok = tokens[pos]
             if tok.type == "TEXT":
-                text = tok.value.strip()
-                if text:
-                    nodes.append(TextNode(text))
+                # Preserve inline spaces, but drop formatting whitespace (newlines + spaces)
+                if tok.value.isspace() and '\n' in tok.value:
+                    pos += 1
+                    continue
+                if tok.value:
+                    nodes.append(TextNode(tok.value))
                 pos += 1
             elif tok.type == "INTERPOLATION":
                 nodes.append(InterpolationNode(tok.value))
@@ -144,8 +147,9 @@ def parse(tokens: list[Token]) -> ElementNode:
         return nodes
 
     top = parse_nodes(set())
-    if len(top) == 1 and isinstance(top[0], ElementNode):
-        return top[0]
+    real_nodes = [n for n in top if not (isinstance(n, TextNode) and n.text.isspace())]
+    if len(real_nodes) == 1 and isinstance(real_nodes[0], ElementNode):
+        return real_nodes[0]
     return ElementNode("#fragment", {}, top)
 
 def eval_expr(expr: str, instance: Any, local_scope: dict) -> Any:
