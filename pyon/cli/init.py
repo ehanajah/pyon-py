@@ -125,15 +125,29 @@ from src.components.Card import Card
 
 
 class Index(Component):
+    def setup(self):
+        self._state = {
+            "count": 0
+        }
+
+    def on_click(self):
+        self.set_state({"count": self._state.get("count", 0) + 1})
+
+    def reset(self):
+        self.set_state({"count": 0})
+
     def render(self):
         return \"""
             <div>
                 <h1 style="text-align: center;">Welcome to PyOn-Py</h1>
-                <Card title="Hello World!">
-                    This is a minimalistic PyOn-Py template.
+                <Card title="Hello World!" >
+                    <p>You clicked {{self._state.get("count", 0)}} times.</p>
+                    <button on_click="{{ lambda e: self.on_click() }}">Click me</button>
+                    <button on_click="{{ lambda e: self.reset() }}">Reset</button>
                 </Card>
             </div>
         \"""
+
 """
     create_file(cwd / "src/pages/Index.py", src_pages_index_py)
 
