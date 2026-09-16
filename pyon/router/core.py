@@ -1,10 +1,15 @@
 from collections.abc import Callable
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from pyon.browser import ffi, js
 
 from .utils import get_query_params
 
+
+class RouterInput(TypedDict):
+    path: str
+    component: type
+    key: NotRequired[str]
 
 class RouteDef(TypedDict):
     path: str
@@ -12,8 +17,14 @@ class RouteDef(TypedDict):
     key: str
 
 class Router:
-    def __init__(self, routes: list[RouteDef]) -> None:
-        self.routes = routes
+    def __init__(self, routes: list[RouterInput]) -> None:
+        self.routes: list[RouteDef] = [
+            {
+                "path": route["path"],
+                "component": route["component"],
+                "key": route.get("key") or route["component"].__name__
+            } for route in routes
+        ]
         self.current_path = js.window.location.pathname
         self.current_search = js.window.location.search
         self._subscribers: list[Callable[[str], None]] = []
