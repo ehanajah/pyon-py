@@ -284,7 +284,7 @@ class Component(Generic[PropsT, StateT]):
         """
         Subscribe to a store and schedule a re-render when the store changes.
         """
-        unsubscribe = store.subscribe(self._schedule_update)
+        unsubscribe = store.subscribe(lambda: self._schedule_update())
         self._store_cleanups.append(unsubscribe)
         return store
 
@@ -340,7 +340,10 @@ class Component(Generic[PropsT, StateT]):
             cls = type(self)
             if cls.__dict__.get("_ast_cache") is None:
                 from pyon.core.template import parse, tokenize
-                cls._ast_cache = parse(tokenize(raw_result))
+                try:
+                    cls._ast_cache = parse(tokenize(raw_result))
+                except Exception as e:
+                    raise SyntaxError(f"Error parsing template: {e}, component: {cls.__name__}")
             
             from pyon.core.template import render_element
             vnode_dict_or_list = render_element(cls._ast_cache, self, {})

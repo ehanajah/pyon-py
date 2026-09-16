@@ -73,7 +73,7 @@ def tokenize(template: str) -> list[Token]:
             tokens.append(Token(kw.group(1).upper() if kw else "STATEMENT", value))
         elif m.group("STARTTAG"):
             name = m.group("startname")
-            selfclose = bool(m.group("selfclose")) or name.lower() in VOID_TAGS
+            selfclose = bool(m.group("selfclose")) or (name.lower() in VOID_TAGS and not name[0].isupper())
             tokens.append(Token("STARTTAG", name, {
                 "props": parse_attrs(m.group("attrs") or ""),
                 "selfclose": selfclose,
