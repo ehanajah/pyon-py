@@ -365,15 +365,45 @@ const _sse = new EventSource("/__reload");
 _sse.addEventListener("message", async (e) => {{
     const data = JSON.parse(e.data);
     if (data.type === "reload") {{
-        // Fallback for older versions
         location.reload();
     }} else if (data.type === "update") {{
         await restart(data.files);
+    }} else if (data.type === "css_update") {{
+        reloadCSS(data.files);
     }}
 }});
 _sse.addEventListener("error", () => {{
     // SSE is down — try reconnecting automatically
 }});
+
+function reloadCSS(changedFiles) {{
+    changedFiles.forEach(filePath => {{
+        const links = document.querySelectorAll('link[rel="stylesheet"]');
+        let replaced = false;
+        
+        links.forEach(link => {{
+            const href = link.getAttribute("href");
+            if (href) {{
+                const linkFile = href.split("?")[0];
+                const fileName = filePath.split("/").pop();
+                
+                if (linkFile.includes(fileName)) {{
+                    link.setAttribute("href", linkFile + "?t=" + Date.now());
+                    replaced = true;
+                    console.log(`[PyOn-Py] CSS updated: ${{filePath}}`);
+                }}
+            }}
+        }});
+
+        if (!replaced) {{
+            const link = document.createElement("link");
+            link.rel  = "stylesheet";
+            link.href = "/" + filePath + "?t=" + Date.now();
+            document.head.appendChild(link);
+            console.log(`[PyOn-Py] CSS injected: ${{filePath}}`);
+        }}
+    }});
+}}
 
 initPyOnPy();
 """
@@ -510,27 +540,46 @@ async def watch_files() -> None:
 
     async for changes in awatch(*watch_paths):
         changed_py_files = []
+        changed_css_files = []
+        changed_js_files = []
+        needs_full_reload = False
+
         for _, path in changes:
             p = Path(path)
-            if p.suffix == ".py":
-                # Find relative path that matches browser
+            try:
+                rel = str(p.relative_to(PROJECT_ROOT))
+            except ValueError:
                 try:
-                    rel = str(p.relative_to(PROJECT_ROOT))
+                    rel = str(p.relative_to(PYON_PKG_DIR.parent))
                 except ValueError:
-                    try:
-                        rel = str(p.relative_to(PYON_PKG_DIR.parent))
-                    except ValueError:
-                        continue
+                    continue
 
-                # Cek ignores
-                if rel.startswith("pyon/") or not any(
-                    ignored in Path(rel).parts for ignored in IGNORED_DIRS
-                ):
-                    print(f"  changed : {rel}")
+            # Cek ignores
+            if rel.startswith("pyon/") or not any(
+                ignored in Path(rel).parts for ignored in IGNORED_DIRS
+            ):
+                if p.suffix == ".py":
+                    print(f"  changed (py)  : {rel}")
                     changed_py_files.append(rel.replace("\\", "/"))
+                elif p.suffix == ".css":
+                    print(f"  changed (css) : {rel}")
+                    changed_css_files.append(rel.replace("\\", "/"))
+                elif p.suffix == ".js":
+                    print(f"  changed (js)  : {rel}")
+                    changed_js_files.append(rel.replace("\\", "/"))
+                elif p.suffix == ".html":
+                    print(f"  changed (html): {rel}")
+                    needs_full_reload = True
 
-        if changed_py_files:
-            await _broadcast({"type": "update", "files": changed_py_files})
+        if needs_full_reload:
+            await _broadcast({"type": "reload"})
+        else:
+            if changed_css_files:
+                await _broadcast({"type": "css_update", "files": changed_css_files})
+            if changed_py_files:
+                await _broadcast({"type": "update", "files": changed_py_files})
+            if changed_js_files:
+                await _broadcast({"type": "reload"})
 
 
 async def handle_pyon_framework(
