@@ -31,6 +31,7 @@ packages = []
 pyodide_version = "314.0.6"
 pyodide_release = "core"
 local_pyodide = false
+port = 8000
 """
     create_file(cwd / "pyon.toml", pyon_toml)
 

@@ -182,7 +182,8 @@ def _generate_loader_js() -> str:
     lock_pkgs = _get_lock_packages()
     lock_json = json.dumps(lock_pkgs, indent=4)
 
-    env_vars = _load_env()
+    env_file = _get_env_file()
+    env_vars = _load_env(env_file)
     env_json = json.dumps(env_vars)
 
     return f"""\
@@ -557,6 +558,9 @@ async def handle_pyon_framework(
 
 
 async def main() -> None:
+    dev_config = _get_dev_config()
+    port = dev_config.get("port", PORT)
+
     app = web.Application()
     app.router.add_get("/loader.js", handle_loader_js)
     app.router.add_get("/__reload", handle_sse)
@@ -568,10 +572,10 @@ async def main() -> None:
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, HOST, PORT)
+    site = web.TCPSite(runner, HOST, port)
     await site.start()
 
-    print(f"\nPyOn-Py dev server running at http://{HOST}:{PORT}")
+    print(f"\nPyOn-Py dev server running at http://{HOST}:{port}")
     print(f"Pyodide version : {PYODIDE_VERSION}")
 
     # Display the files that will be loaded
