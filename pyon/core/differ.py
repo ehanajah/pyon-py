@@ -349,8 +349,8 @@ def diff(
     if old is None:
         return [create_patch(path, new)]
 
-    # ── Case 4: tag type changed — replace the entire subtree ──────────────
-    if old.tag != new.tag:
+    # ── Case 4: tag type or component boundary changed — replace the entire subtree ──────────────
+    if old.tag != new.tag or old.component_key != new.component_key:
         return [replace_patch(path, new)] 
 
     # ── Case 5: props changed ───────────────────────────────────────────
