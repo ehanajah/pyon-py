@@ -10,10 +10,8 @@ from .utils.toml_utils import get_pyon_toml_path, read_pyon_toml, write_pyon_tom
 
 
 @click.command()
-@click.option("--packages-only", is_flag=True, help="Only download packages/wheels")
-@click.option("--pyodide-only", is_flag=True, help="Only download Pyodide")
-def download(packages_only, pyodide_only):
-    """Download packages (WASM-compatible) and Pyodide"""
+def download():
+    """Download packages (WASM-compatible) and Pyodide (if local_pyodide is true)"""
     toml_path = get_pyon_toml_path()
     if not toml_path.exists():
         click.secho("Error: pyon.toml not found. Run 'pyon init' to create a new pyon.toml file.", fg="red", err=True)
@@ -21,8 +19,8 @@ def download(packages_only, pyodide_only):
 
     doc = read_pyon_toml()
 
-    do_packages = packages_only or (not packages_only and not pyodide_only)
-    do_pyodide = pyodide_only or (not packages_only and not pyodide_only)
+    do_packages = True
+    do_pyodide = doc.get("dev", {}).get("local_pyodide", False)
 
     if do_packages:
         click.echo("Sync packages...")
