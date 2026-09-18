@@ -9,3 +9,4 @@ from .router import Router
 from .store import Store
 
 __all__ = ["App", "BaseProps", "Component", "EventEmitter", "Router", "Store", "VNode", "h"]
+__version__ = "0.1.0"
