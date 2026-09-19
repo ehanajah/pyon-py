@@ -1,11 +1,9 @@
+import sys
 """
 Tests for Coroutine Dispatcher, Microtask Batching, and Stale Unmount Protection.
 """
 import asyncio
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Mock dom so tests can execute without browser DOM / Pyodide runtime
 sys.modules['pyon.dom'] = type('MockDOM', (), {

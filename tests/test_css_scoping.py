@@ -1,7 +1,4 @@
 import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from pyon.core import App, Component, h
 from pyon.core.css import CSSManager
@@ -33,11 +30,10 @@ def test_css_scoping():
     assert MyComponent.scope_id in registry
     assert ParentComp.scope_id in registry
     assert "color: red" in registry[MyComponent.scope_id]
-    
+
     # Mock dom
-    import sys
     sys.modules['pyon.dom'] = type('MockDOM', (), {
-        'full_render': lambda *args, **kwargs: None, 
+        'full_render': lambda *args, **kwargs: None,
         'apply_patches': lambda *args, **kwargs: None,
         'inject_scoped_css': lambda *args, **kwargs: None
     })()
@@ -49,7 +45,7 @@ def test_css_scoping():
     parent_vnode = app.current_tree
     assert parent_vnode.tag == "div"
     assert f"data-{ParentComp.scope_id}" in parent_vnode.props
-    
+
     # Verify penetration to child
     child_vnode = parent_vnode.children[0]
     assert child_vnode.tag == "div"

@@ -1,3 +1,4 @@
+import sys
 import pytest
 from pyon.core.bus import EventEmitter
 from pyon.core import Component, App, h

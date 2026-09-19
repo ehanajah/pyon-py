@@ -1,3 +1,4 @@
+import sys
 """
 Integration test: Key-based component identity — full lifecycle simulation.
 
@@ -10,12 +11,9 @@ Run:
     python tests/test_key_identity_integration.py
 """
 
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # ============================================================================
 # Mock bridge layer — simulasikan DOM tanpa browser

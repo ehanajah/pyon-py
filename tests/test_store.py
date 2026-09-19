@@ -1,3 +1,4 @@
+import sys
 import pytest
 from pyon.store import Store
 from pyon.core import Component, App, h

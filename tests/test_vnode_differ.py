@@ -5,10 +5,7 @@ Run from parent folder:
     pytest tests/test_vnode_differ.py -v
 """
 
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from pyon.core import VNode, h
 from pyon.core import diff

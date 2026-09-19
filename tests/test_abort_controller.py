@@ -1,3 +1,4 @@
+import sys
 """
 Test: AbortController — pembatalan HTTP request otomatis saat komponen unmount.
 
@@ -13,12 +14,9 @@ Run:
     python pyon/tests/test_abort_controller.py
 """
 
-import sys
 import asyncio
-from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # ============================================================================
 # Mock bridge layer
