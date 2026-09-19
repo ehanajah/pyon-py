@@ -25,7 +25,7 @@ class ElementNode(Node):
 
 @dataclass
 class ForNode(Node):
-    var_name: str
+    var_names: str       # raw string: "i, v" atau "k, v, x"
     iterable_expr: str
     body: list[Node]
 
@@ -85,7 +85,7 @@ def tokenize(template: str) -> list[Token]:
         tokens.append(Token("TEXT", template[pos:]))
     return tokens
 
-FOR_RE = re.compile(r"^for\s+(\w+)\s+in\s+(.+)$")
+FOR_RE = re.compile(r"^for\s+([\w\s,]+?)\s+in\s+(.+)$")
 IF_RE = re.compile(r"^if\s+(.+)$")
 ELIF_RE = re.compile(r"^elif\s+(.+)$")
 
@@ -122,7 +122,11 @@ def parse(tokens: list[Token]) -> ElementNode:
                 pos += 1
                 body = parse_nodes({"ENDFOR"})
                 pos += 1
-                nodes.append(ForNode(m.group(1), m.group(2), body))
+                nodes.append(ForNode(
+                    m.group(1).strip(), 
+                    m.group(2).strip(), 
+                    body
+                ))
             elif tok.type == "IF":
                 m = IF_RE.match(tok.value)
                 if not m:
@@ -202,8 +206,24 @@ def render_children(nodes: list[Node], instance: Any, local_scope: dict) -> Iter
             else:
                 yield res
         elif isinstance(node, ForNode):
-            for item in eval_expr(node.iterable_expr, instance, local_scope):
-                yield from render_children(node.body, instance, {**local_scope, node.var_name: item})
+            iterable = eval_expr(node.iterable_expr, instance, local_scope)
+            names    = [n.strip() for n in node.var_names.split(",")]
+
+            for item in iterable:
+                if len(names) == 1:
+                    new_scope = {**local_scope, names[0]: item}
+                else:
+                    # Tuple unpacking — item must be iterable
+                    try:
+                        values    = list(item)
+                        new_scope = {**local_scope, **dict(zip(names, values))}
+                    except TypeError:
+                        raise ValueError(
+                            f"Template error: '{node.var_names}' expects an iterable "
+                            f"to unpack, got {type(item).__name__}"
+                        )
+
+                yield from render_children(node.body, instance, new_scope)
         elif isinstance(node, IfNode):
             for cond, body in node.branches:
                 if not body:
