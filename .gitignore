@@ -38,3 +38,8 @@ htmlcov/
 
 # Project specific
 /dev/*.pyc
+
+# PyOn-Py Caches
+pyodide_local/
+packages_cache/
+pyon.lock
