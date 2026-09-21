@@ -29,3 +29,6 @@ Repository = "https://github.com/ehanajah/pyon-py"
 
 [project.scripts]
 pyon = "pyon.cli.main:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pyon"]
