@@ -56,6 +56,43 @@ pyodide_cache/
 """
     create_file(cwd / ".gitignore", gitignore_content)
 
+    # README.md
+    readme_content = """# My PyOn-Py App
+
+Welcome to your new PyOn-Py project! PyOn-Py is a powerful, WebAssembly-based Python frontend framework that runs entirely in the browser using Pyodide.
+
+## Getting Started
+
+### 1. Run the Development Server
+To start the local development server with Hot Module Replacement (HMR):
+```bash
+pyon dev
+```
+Open your browser and navigate to `http://localhost:8000`.
+
+### 2. Add Packages (Optional)
+If your project requires third-party Python packages, add them to the `[dependencies]` section in your `pyon.toml` file, then run:
+```bash
+pyon download
+```
+
+## Project Structure
+
+* **`app.py`**: The main entry point that initializes and mounts the application.
+* **`index.html`**: The HTML skeleton where the app will be injected.
+* **`pyon.toml`**: The project configuration file.
+* **`src/`**: Your application source code.
+  * **`App.py`**: The root component.
+  * **`pages/`**: Application pages.
+  * **`components/`**: Reusable UI components.
+  * **`static/`**: Static assets like CSS, images, etc.
+
+## Modifying the App
+
+Open `src/pages/Index.py` to see how a simple stateful component is built. Any changes you make to `.py` files will be automatically reflected in the browser without a full page reload!
+"""
+    create_file(cwd / "README.md", readme_content)
+
     # index.html
     index_html = """<!DOCTYPE html>
 <html lang="en">
