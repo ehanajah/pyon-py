@@ -79,17 +79,17 @@ class BaseProps(TypedDict, total=False):
 
 
 BaseState: TypeAlias = dict[str, Any]
-
+BaseEvents: TypeAlias = dict[str, Callable]
 
 # TypeVar for generic Props — must be a Mapping (dict-like).
 # Allows Component subclasses to declare their props type explicitly.
 PropsT = TypeVar("PropsT", bound=Mapping[str, Any], default=BaseProps)
 StateT = TypeVar("StateT", bound=Mapping[str, Any], default=BaseState)
 
-EventsT = TypeVar("EventsT", bound=Mapping[str, Callable])
+EventsT = TypeVar("EventsT", bound=Mapping[str, Callable], default=BaseEvents)
 
 
-class Component(Generic[PropsT, StateT]):
+class Component(Generic[PropsT, StateT, EventsT]):
     """Base class for all user-defined UI components.
 
     Component follows the React class component pattern:
@@ -162,8 +162,8 @@ class Component(Generic[PropsT, StateT]):
     scope_id: ClassVar[str] = ""
 
     @property
-    def events(self) -> dict[str, Callable]:
-        return {}
+    def events(self) -> EventsT:
+        return cast(EventsT, {})
 
     @final
     def __init__(self, props: PropsT | None = None) -> None:
