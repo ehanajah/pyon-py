@@ -40,11 +40,21 @@ Build reactive web applications entirely in Python — no JavaScript required. P
 ## Quick Start
 
 ```bash
+# Create a new project
+mkdir my-app && cd my-app
+
+# Create and activate a virtual environment
+python -m venv .venv
+
+# Linux/macOS
+source .venv/bin/activate
+# Windows
+.\.venv\Scripts\activate
+
 # Install pyon-py
 pip install pyon-py
 
-# Create a new project
-mkdir my-app && cd my-app
+# Initialize a new project
 pyon init
 
 # Start development server
