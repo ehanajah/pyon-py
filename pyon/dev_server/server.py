@@ -31,7 +31,7 @@ PORT = 8000
 
 PROJECT_ROOT = Path.cwd()
 
-IGNORED_DIRS = {"__pycache__", ".git", "node_modules", "dev", "tests", "venv", "cli"}
+IGNORED_DIRS = {"__pycache__", ".git", "node_modules", "dev", "tests", "venv", ".venv", "env", ".env", "cli"}
 
 PYODIDE_VERSION = "314.0.2"
 
@@ -129,17 +129,18 @@ def _collect_py_files() -> list[str]:
 
     # 1. Collect framework files from site-packages or src
     for path in sorted(PYON_PKG_DIR.rglob("*.py")):
-        if any(part in IGNORED_DIRS for part in path.parts):
+        rel_pkg = path.relative_to(PYON_PKG_DIR)
+        if any(part in IGNORED_DIRS for part in rel_pkg.parts):
             continue
         buckets.append(path.relative_to(PYON_PKG_DIR.parent))
 
     # 2. Collect user files
     for path in sorted(PROJECT_ROOT.rglob("*.py")):
-        # Skip ignored folders
-        if any(part in IGNORED_DIRS for part in path.parts):
-            continue
-
         rel = path.relative_to(PROJECT_ROOT)
+        
+        # Skip ignored folders
+        if any(part in IGNORED_DIRS for part in rel.parts):
+            continue
 
         # This prevents duplicate entries if the dev server is running from the framework repo itself
         if rel.parts[0] == "pyon":
