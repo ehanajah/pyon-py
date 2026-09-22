@@ -624,6 +624,8 @@ PyOn-Py includes a client-side SPA router integrated with browser history.
 from pyon.core import create_app
 from pyon.router import Router, RouterView, Link, RouteDef
 
+# `key` is optional, but if there are multiple routes with the same component,
+# you must provide a unique key to avoid conflicts
 routes: list[RouteDef] = [
     {"path": "/", "component": HomePage, "key": "home"},
     {"path": "/users/:id", "component": UserPage, "key": "user"},
