@@ -93,9 +93,10 @@ ELIF_RE = re.compile(r"^elif\s+(.+)$")
 
 def parse(tokens: list[Token]) -> ElementNode:
     pos = 0
+    seq_counter = 0
 
     def parse_nodes(stop_types: set[str]) -> list[Node]:
-        nonlocal pos
+        nonlocal pos, seq_counter
         nodes = []
         while pos < len(tokens) and tokens[pos].type not in stop_types:
             tok = tokens[pos]
@@ -111,8 +112,14 @@ def parse(tokens: list[Token]) -> ElementNode:
                 nodes.append(InterpolationNode(tok.value))
                 pos += 1
             elif tok.type == "STARTTAG":
-                props, selfclose = tok.extra["props"], tok.extra["selfclose"]
+                props, selfclose = tok.extra["props"].copy(), tok.extra["selfclose"]
                 pos += 1
+                
+                # Assign static sequence identifier for component tags
+                if tok.value[0].isupper():
+                    props["_ast_seq"] = str(seq_counter)
+                    seq_counter += 1
+                
                 children = [] if selfclose else parse_nodes({"ENDTAG"})
                 if not selfclose:
                     pos += 1  # skip ENDTAG

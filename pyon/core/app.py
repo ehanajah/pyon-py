@@ -64,7 +64,11 @@ def _check_sibling_keys(children: Children):
 
     for child in component_children:
         if not child.key and isinstance(child.tag, type):
-            child.key = child.tag.__name__
+            ast_seq = child.props.get("_ast_seq")
+            if ast_seq is not None:
+                child.key = f"{child.tag.__name__}_{ast_seq}"
+            else:
+                child.key = child.tag.__name__
 
     key_counts = Counter(child.key for child in component_children)
     duplicate_keys = {key for key, count in key_counts.items() if count > 1 and isinstance(key, str)}
@@ -141,12 +145,18 @@ def _expand_tree(
     if isinstance(node.tag, type) and issubclass(node.tag, Component):
         # Get local key from props — mandatory for all custom components.
         # Key is used as a unique identifier for the component in component_map.
-        local_key = node.props.get("key") or node.tag.__name__
+        # Precedence: Explicit 'key' > Auto-generated '_ast_seq' > Component class name
+        local_key = node.props.get("key")
+        
+        # Pop _ast_seq so it doesn't leak into the component's actual props
+        ast_seq = node.props.pop("_ast_seq", None)
+        
         if local_key is None:
-            raise ValueError(
-                f"'{node.tag.__name__}' must have 'key' props. "
-                f'Example: h({node.tag.__name__}, {{"key": "unique-name"}})'
-            )
+            if ast_seq is not None:
+                local_key = f"{node.tag.__name__}_{ast_seq}"
+            else:
+                local_key = node.tag.__name__
+                
         local_key = str(local_key)
 
         # Build hierarchical full key from parent_key + local_key.

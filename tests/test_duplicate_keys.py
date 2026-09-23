@@ -75,3 +75,42 @@ def test_no_duplicate_key_collision():
     
     # 3 instances should be in component map (AppNoCollision, DummyCard 1, DummyCard 2)
     assert len(app.component_map) == 3
+
+class AppAstTagging(Component):
+    def render(self):
+        return """
+        <div>
+            <div>
+                <DummyCard />
+            </div>
+            <div>
+                <DummyCard />
+            </div>
+        </div>
+        """
+
+def test_ast_sequence_tagging():
+    app = App(AppAstTagging)
+    from pyon.core.vnode import VNode
+    from pyon.core.app import _expand_tree
+    
+    root_node = VNode(
+        tag=app.root_class,
+        props={"key": app.root_class.__name__},
+        children=[],
+    )
+    # This should not raise any exceptions because AST tags provide unique identifiers
+    expanded = _expand_tree(
+        root_node,
+        path="0",
+        parent_key="",
+        component_map=app.component_map,
+        app=app,
+    )
+    
+    # 3 instances should be in component map
+    assert len(app.component_map) == 3
+    # Check that keys have AST sequence suffix
+    keys = list(app.component_map.keys())
+    assert "AppAstTagging.DummyCard_0" in keys
+    assert "AppAstTagging.DummyCard_1" in keys
