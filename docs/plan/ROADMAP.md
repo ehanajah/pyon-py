@@ -43,10 +43,10 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 - [x] **Pembatalan Request HTTP (AbortController):**
   - [x] Mengintegrasikan Javascript `AbortController` ke modul `pyon.http`.
   - [x] Mengaitkan pembatalan ke *lifecycle* komponen. Jika `on_unmount` dipanggil saat request (seperti `fetch`) masih berjalan, *request* wajib dibatalkan otomatis agar tidak memicu `set_state` pada komponen yang telah musnah (mencegah *memory leak* & *exception*).
-- [ ] **Distribusi PyOn-Py sebagai Package & CLI Tool:** (Lihat [Spesifikasi CLI](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/CLI_PACKAGE.md))
+- [x] **Distribusi PyOn-Py sebagai Package & CLI Tool:** (Lihat [Spesifikasi CLI](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/CLI_PACKAGE.md))
   - [x] **Fase 1 (Refactoring & CLI):** Membuat direktori `pyon/cli/` berbasis `click` (`dev`, `init`), memindahkan `dev_server`, dan menambahkan `pyproject.toml` dengan entry point `pyon`.
   - [x] **Fase 2 (Isolasi Repo):** Mengekstrak direktori `pyon/` menjadi repositori murni `pyon-py` yang bersih dari kode implementasi/contoh aplikasi.
-  - [ ] **Fase 3 (Publikasi PyPI):** Membangun `dist/*` via modul `build` dan mengunggahnya ke TestPyPI lalu PyPI asli (rilis v0.1.0).
+  - [x] **Fase 3 (Publikasi PyPI):** Membangun `dist/*` via modul `build` dan mengunggahnya ke TestPyPI lalu PyPI asli (rilis v0.1.1 via Hatchling).
 - [x] **Manajemen Dependensi Dua-Lapisan (Host & Browser):** (Lihat [Spesifikasi Dependensi](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/DEPENDENCY_MANAGEMENT.md))
   - [x] Implementasi CLI `pyon add` untuk menambahkan paket ke `pyon.toml` (mendukung flag `--dev` dan menjaring *transitive C-extension*).
   - [x] Implementasi CLI `pyon remove` yang menyertakan *pruning* pada `packages_cache` dan *lock file*.
@@ -73,10 +73,12 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
   - Pembuatan modul manajemen status global reaktif yang dapat diinjeksi atau dibagikan antar komponen di luar lingkup pewarisan pohon `Context API`, mirip dengan Vuex/Pinia atau sistem *Signals*.
 - [x] **EventEmitter & Generic Event Bus:**
   - Pembuatan sistem *Pub-Sub* murni tanpa status (`pyon/core/bus.py`) untuk memfasilitasi komunikasi antar komponen dan integrasi ekstensi pihak ketiga secara aman, lengkap dengan pembersihan listener otomatis `use_event` saat komponen di-*unmount*.
-- [ ] **Template Syntax & Alternatif Penulisan UI:**
-  - Penjajakan dukungan sintaksis deklaratif opsional berbasis string HTML + Jinja-like yang di-parse menjadi VNode saat runtime.
-- [ ] **Sistem Client Session HTTP Terpusat:**
-  - Pembuatan kelas `HTTPClient` (mirip `httpx.Client`) untuk menyimpan konfigurasi *stateful* berulang seperti `base_url`, `default_headers`, atau *Auth Tokens*.
+- [x] **Template Syntax & Alternatif Penulisan UI:**
+  - [x] Sintaksis deklaratif opsional berbasis string HTML (Jinja-like) yang di-parse menjadi VNode saat runtime (`pyon/core/template.py`).
+  - [x] **AST Sequence Tagging:** Generator identifier statis (`_ast_seq`) pada fase kompilasi/parsing untuk menyelesaikan masalah render bersyarat (*conditional rendering*) tanpa mengharuskan developer menulis `key` manual (terinspirasi dari Blazor/Vue).
+  - [x] **Collision Validation:** Peringatan bentrok key (*duplicate component key detected*) pada saat fase `_expand_tree` untuk mencegah tertimpanya state pada pendekatan arsitektur *Flat Component Map*.
+- [x] **Sistem Client Session HTTP Terpusat:**
+  - [x] Pembuatan kelas `HTTPClient` (mirip `httpx.Client`) untuk menyimpan konfigurasi *stateful* berulang seperti `base_url`, `default_headers`, atau *Auth Tokens*. Terintegrasi dengan pembatalan request (AbortController) yang sudah ada.
 - [ ] **Server-Sent Events (SSE) & WebSockets:**
   - Sub-modul `pyon/http/sse.py` dan `ws.py` untuk mengelola protokol *real-time* dan *streaming*, lengkap dengan status *re-render* yang reaktif.
 
