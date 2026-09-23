@@ -94,6 +94,7 @@ def _expand_tree(
     parent_key: str,
     component_map: dict[str, Component],
     app: App,
+    _seen_keys: set[str] | None = None,
 ) -> VNode:
     """Recursively expands a VNode tree into a pure HTML tree.
 
@@ -152,6 +153,20 @@ def _expand_tree(
         # Format: "TodoApp.error-boundary.todo-item-1"
         # Full key ensures global uniqueness even if local_key is the same at different levels.
         full_key = f"{parent_key}.{local_key}" if parent_key else local_key
+
+        # ── Collision detection ──
+        # Track all full_keys claimed during this expansion cycle.
+        if _seen_keys is None:
+            _seen_keys = set()
+
+        if full_key in _seen_keys:
+            raise ValueError(
+                f"Duplicate component key '{full_key}' detected in the render tree. "
+                f"Two '{node.tag.__name__}' components under the same parent resolved to "
+                f"the same identity. Give each a unique 'key' prop.\n"
+                f'Example: h({node.tag.__name__}, {{"key": "unique-name"}})'
+            )
+        _seen_keys.add(full_key)
 
         # Inject children into props so it can be used with the Slot pattern.
         # Create a copy of props to avoid mutating the original VNode props.
@@ -225,7 +240,7 @@ def _expand_tree(
             finally:
                 current_component.reset(token)
                 
-            expanded = _expand_tree(child_vnode, path, full_key, component_map, app)
+            expanded = _expand_tree(child_vnode, path, full_key, component_map, app, _seen_keys)
 
             # Mark the expanded VNode with the component's full_key.
             # Used by _find_path_by_key() and _collect_keys_in_tree().
@@ -257,7 +272,7 @@ def _expand_tree(
                     child_vnode = instance._render()
                 finally:
                     current_component.reset(token)
-                expanded = _expand_tree(child_vnode, path, full_key, component_map, app)
+                expanded = _expand_tree(child_vnode, path, full_key, component_map, app, _seen_keys)
                 expanded.component_key = full_key
                 expanded.key = node.key
                 return expanded
@@ -310,7 +325,7 @@ def _expand_tree(
             # Recursively expand child VNode with path appended by index.
             # "0.1" + child index 3 → "0.1.3"
             expanded_children.append(
-                _expand_tree(child, f"{path}.{i}", parent_key, component_map, app)
+                _expand_tree(child, f"{path}.{i}", parent_key, component_map, app, _seen_keys)
             )
         else:
             # Child is not a VNode (text string, number, etc.) — pass as is.
