@@ -179,7 +179,7 @@ def _generate_loader_js() -> str:
     dev_config = _get_dev_config()
     use_local_pyodide = dev_config.get("local_pyodide", False)  # For future use
     pyodide_version = dev_config.get("pyodide_version", PYODIDE_VERSION)
-    pyodide_cdn = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/pyodide.js"
+    pyodide_url = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/pyodide.js"
     lock_pkgs = _get_lock_packages()
     lock_json = json.dumps(lock_pkgs, indent=4)
 
@@ -196,7 +196,7 @@ const PY_FILES = {files_json};
 const PACKAGES = {deps_json};
 const USE_LOCAL_PYODIDE = '{use_local_pyodide}' === 'False' ? false : true;
 const LOCK_PACKAGES = {lock_json};
-const PYODIDE_CDN = "{pyodide_cdn}";
+const PYODIDE_URL = "{pyodide_url}";
 
 // Environment variables (only PYON_ prefixed)
 // Do not store sensitive data here
@@ -240,7 +240,7 @@ async function initPyOnPy() {{
 
     try {{
         setStatus("Fetching Pyodide " + PYODIDE_VERSION + " script...");
-        const pyodideUrl = USE_LOCAL_PYODIDE ? "/pyodide/pyodide.js" : PYODIDE_CDN;
+        const pyodideUrl = USE_LOCAL_PYODIDE ? "/pyodide/pyodide.js" : PYODIDE_URL;
         await loadScript(pyodideUrl);
 
         setStatus("Loading Pyodide runtime...");
