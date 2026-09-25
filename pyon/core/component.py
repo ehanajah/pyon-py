@@ -30,14 +30,13 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
-    Generic,
     TypeAlias,
     TypedDict,
     cast,
     final,
 )
 
-from typing_extensions import TypeVar
+from typing_extensions import Generic, TypeVar  # noqa: UP035
 
 from pyon.browser._protocol.http import AbortController
 from pyon.core.bus import EventEmitter
