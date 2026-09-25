@@ -121,44 +121,7 @@ def _get_lock_packages() -> dict[str, str]:
     except Exception:
         return {}
 
-def _collect_py_files() -> list[str]:
-    """
-    Recursively scan the framework and PROJECT_ROOT, and return a list of .py paths.
-    """
-    buckets: list[Path] = []
-
-    # 1. Collect framework files from site-packages or src
-    for path in sorted(PYON_PKG_DIR.rglob("*.py")):
-        rel_pkg = path.relative_to(PYON_PKG_DIR)
-        if any(part in IGNORED_DIRS for part in rel_pkg.parts):
-            continue
-        buckets.append(path.relative_to(PYON_PKG_DIR.parent))
-
-    # 2. Collect user files
-    for path in sorted(PROJECT_ROOT.rglob("*.py")):
-        rel = path.relative_to(PROJECT_ROOT)
-        
-        # Skip ignored folders
-        if any(part in IGNORED_DIRS for part in rel.parts):
-            continue
-
-        # This prevents duplicate entries if the dev server is running from the framework repo itself
-        if rel.parts[0] == "pyon":
-            continue
-
-        buckets.append(rel)
-
-    # Sort by length, then by whether it's an __init__.py file, and finally by path
-    def sort_key(p: Path) -> tuple:
-        is_init = 0 if p.name == "__init__.py" else 1
-        return (len(p.parts), is_init, str(p))
-
-    buckets.sort(key=sort_key)
-
-    result = [str(p).replace("\\", "/") for p in buckets]
-
-    return result
-
+from pyon.cli.utils.file_collector import collect_py_files as _collect_py_files
 
 # ---------------------------------------------------------------------------
 # Generate loader.js
