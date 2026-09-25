@@ -1,6 +1,7 @@
 import click
 
 from .add import add
+from .build import build
 from .dev import dev
 from .download import download
 from .init import init
@@ -11,6 +12,7 @@ from .remove import remove
 def cli():
     """PyOn-Py CLI - Python VDOM Framework on Pyodide & WebAssembly"""
 
+cli.add_command(build)
 cli.add_command(dev)
 cli.add_command(init)
 cli.add_command(add)
