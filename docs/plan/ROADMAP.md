@@ -79,8 +79,10 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
   - [x] **Collision Validation:** Peringatan bentrok key (*duplicate component key detected*) pada saat fase `_expand_tree` untuk mencegah tertimpanya state pada pendekatan arsitektur *Flat Component Map*.
 - [x] **Sistem Client Session HTTP Terpusat:**
   - [x] Pembuatan kelas `HTTPClient` (mirip `httpx.Client`) untuk menyimpan konfigurasi *stateful* berulang seperti `base_url`, `default_headers`, atau *Auth Tokens*. Terintegrasi dengan pembatalan request (AbortController) yang sudah ada.
-- [ ] **Server-Sent Events (SSE) & WebSockets:**
-  - Sub-modul `pyon/http/sse.py` dan `ws.py` untuk mengelola protokol *real-time* dan *streaming*, lengkap dengan status *re-render* yang reaktif.
+- [x] **Server-Sent Events (SSE) & WebSockets:**
+  - [x] `WebSocketClient` (`pyon/http/ws.py`) — client WebSocket dengan auto-cleanup lifecycle, JSON serialization, dan ready state tracking.
+  - [x] `EventSourceClient` (`pyon/http/sse.py`) — client SSE dengan dukungan named events (`on()`), auto-cleanup lifecycle.
+  - [x] Arsitektur 3-lapis platform-agnostic: Protocol (`_protocol/http.py`) → Adapter (`impl/pyodide_impl/http.py`) → Client (`pyon/http/`). Seluruh impor `js` dan `pyodide.ffi` terisolasi di lapisan Adapter.
 
 ---
 

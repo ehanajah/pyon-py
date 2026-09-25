@@ -3,5 +3,22 @@ from .exceptions import HTTPError, HTTPStatusError
 from .resource import Resource, create_resource
 from .response import HTTPResponse
 from .session import HTTPClient
+from .sse import EventSourceClient
+from .ws import WebSocketClient
 
-__all__ = ["HTTPClient", "HTTPError", "HTTPResponse", "HTTPStatusError", "Resource", "create_resource", "delete", "get", "patch", "post", "put", "request"]
+__all__ = [
+    "EventSourceClient",
+    "HTTPClient",
+    "HTTPError",
+    "HTTPResponse",
+    "HTTPStatusError",
+    "Resource",
+    "WebSocketClient",
+    "create_resource",
+    "delete",
+    "get",
+    "patch",
+    "post",
+    "put",
+    "request",
+]

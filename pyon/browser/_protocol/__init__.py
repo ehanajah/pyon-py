@@ -18,7 +18,13 @@ from .dom import (
     WindowLocation,
 )
 from .ffi import FFI, FFIProxy
-from .http import AbortController, Fetch, FetchResponse
+from .http import (
+    AbortController,
+    EventSourceAdapterProtocol,
+    Fetch,
+    FetchResponse,
+    WebSocketAdapterProtocol,
+)
 
 __all__ = [
     "FFI",
@@ -29,6 +35,7 @@ __all__ = [
     "Crypto",
     "CustomElementRegistry",
     "Document",
+    "EventSourceAdapterProtocol",
     "FFIProxy",
     "Fetch",
     "FetchResponse",
@@ -40,6 +47,7 @@ __all__ = [
     "ScrollToOptions",
     "Storage",
     "VisualViewport",
+    "WebSocketAdapterProtocol",
     "Window",
     "WindowHistory",
     "WindowLocation",
