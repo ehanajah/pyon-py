@@ -89,13 +89,22 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 ## Prioritas 3: Nanti (Ekosistem, Build System & Production Readiness)
 *Fokus jangka panjang untuk kesiapan penyampaian produksi berkecepatan tinggi dan kelengkapan infrastruktur perkakas pendukung.*
 
-- [ ] **Build System & Production Optimization (WASM):**
-  - Implementasi komandan sistem build untuk produksi yang menonaktifkan fitur pemuat mode dev (*dev tools/server fetching* file per file).
-  - Merapikan (minify), memampatkan (bundle), dan menyatukan seluruh berkas Python menjadi satu kesatuan paket kompresi (*virtual filesystem zip*) demi percepatan muat perdana (*initial load payload speed*) yang kilat.
+- [ ] **Build System & Production Bundling (Pyodide Virtual FS):** (Lihat [Spesifikasi Build System](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/BUILD_SYSTEM.md))
+  - Pembuatan CLI `pyon build` untuk mode produksi yang menghentikan transfer file individual via *dev server HTTP requests*.
+  - Mengkompresi/bundling seluruh folder `src/` dan file Python proyek menjadi sebuah arsip *Virtual Filesystem* (misalnya `app.zip` atau `app.tar.gz`).
+  - Browser/Pyodide hanya melakukan 1 kali pengunduhan (`pyodide.unpackArchive`) dan langsung mengekstraksi seluruh proyek ke dalam memori RAM (MEMFS), menghasilkan *initial load speed* yang sangat kilat dan menyelesaikan masalah resolusi modul tanpa melakukan ratusan request HTTP berantai (*Network Waterfall*).
 - [ ] **Stateful Hot Reload (Persistensi State & Instance):**
   - Mempertahankan `_state` dan *instance* komponen yang tidak berubah saat hot reload menggunakan `importlib.reload()` dan migrasi `instance.__class__` ke kelas baru.
   - Alternatif lebih sederhana: *snapshot* state sebelum restart, lalu *restore* ke instance baru yang memiliki `component_key` yang sama.
-- [ ] **Package & Module System Resolution:**
-  - Penyempurnaan manajemen hierarki folder dan modul untuk proyek berskala besar di atas sistem berkas virtual Pyodide TANPA mengandalkan daftar impor linear kaku di `loader.js`.
-- [ ] **`wasm_impl.py` (Native WASM / MicroPython Bridge):**
-  - Eksplorasi backend jembatan eksekusi alternatif selain Pyodide (misalnya MicroPython untuk WASM atau Python native WASM runtime masa depan) untuk meringankan konsumsi memori dan ukuran bodi runtime.
+
+---
+
+## Prioritas 4: Eksplorasi Arsitektur Lanjutan (R&D)
+*Fitur konseptual dan riset arsitektur masa depan yang membutuhkan perombakan mesin framework.*
+
+- [ ] **Async Components & Lazy Loading Boundaries:**
+  - Penerapan komponen asinkron (mirip `React.lazy` & `Suspense`) sehingga VDOM *engine* PyOn-Py bisa ditangguhkan (*yield*) saat ekspansi pohon komponen.
+  - Jika ini berhasil diterapkan, kita bisa mempertimbangkan pembuatan *Custom Import Finder (PEP 302)* yang melakukan *lazy-loading* file `.py` individual secara on-demand via jaringan, tanpa memblokir perenderan *main thread*.
+- [ ] **Native WASM Compilation & Alternatif Runtime:**
+  - Eksplorasi proses kompilasi *Native WASM* (mengkonversi kode Python + Framework murni ke `.wasm` biner menggunakan *build tools* LLVM/Emscripten). Mengingat kompleksitas dependensi *build* C-extension Pyodide saat ini, target jangka pendek adalah *bundling* ZIP Pyodide, sementara kompilasi murni akan diriset secara paralel.
+  - Eksplorasi backend jembatan eksekusi alternatif selain Pyodide (misalnya MicroPython WASM port).
