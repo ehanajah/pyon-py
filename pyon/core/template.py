@@ -171,7 +171,10 @@ def eval_expr(expr: str, instance: Any, local_scope: dict) -> Any:
     import sys
     globals_dict = sys.modules[instance.__class__.__module__].__dict__.copy()
     globals_dict["self"] = instance
-    return eval(expr, globals_dict, local_scope)
+    try:
+        return eval(expr, globals_dict, local_scope)
+    except Exception as e:
+        raise TemplateError(f"Error evaluating expression '{expr}' at {instance.__class__.__name__}.render(): {e}")
 
 INTERP_IN_ATTR_RE = re.compile(r"\{\{(.*?)\}\}")
 
