@@ -89,10 +89,10 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 ## Prioritas 3: Nanti (Ekosistem, Build System & Production Readiness)
 *Fokus jangka panjang untuk kesiapan penyampaian produksi berkecepatan tinggi dan kelengkapan infrastruktur perkakas pendukung.*
 
-- [ ] **Build System & Production Bundling (Pyodide Virtual FS):** (Lihat [Spesifikasi Build System](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/BUILD_SYSTEM.md))
-  - Pembuatan CLI `pyon build` untuk mode produksi yang menghentikan transfer file individual via *dev server HTTP requests*.
-  - Mengkompresi/bundling seluruh folder `src/` dan file Python proyek menjadi sebuah arsip *Virtual Filesystem* (misalnya `app.zip` atau `app.tar.gz`).
-  - Browser/Pyodide hanya melakukan 1 kali pengunduhan (`pyodide.unpackArchive`) dan langsung mengekstraksi seluruh proyek ke dalam memori RAM (MEMFS), menghasilkan *initial load speed* yang sangat kilat dan menyelesaikan masalah resolusi modul tanpa melakukan ratusan request HTTP berantai (*Network Waterfall*).
+- [x] **Build System & Production Bundling (Pyodide Virtual FS):** (Lihat [Spesifikasi Build System](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/BUILD_SYSTEM.md))
+  - [x] Pembuatan CLI `pyon build` untuk mode produksi yang menghentikan transfer file individual via *dev server HTTP requests*.
+  - [x] Mengkompresi/bundling seluruh folder `src/` dan file Python proyek menjadi sebuah arsip *Virtual Filesystem* (misalnya `app.zip` atau `app.tar.gz`).
+  - [x] Browser/Pyodide hanya melakukan 1 kali pengunduhan (`pyodide.unpackArchive`) dan langsung mengekstraksi seluruh proyek ke dalam memori RAM (MEMFS), menghasilkan *initial load speed* yang sangat kilat dan menyelesaikan masalah resolusi modul tanpa melakukan ratusan request HTTP berantai (*Network Waterfall*).
 - [ ] **Stateful Hot Reload (Persistensi State & Instance):**
   - Mempertahankan `_state` dan *instance* komponen yang tidak berubah saat hot reload menggunakan `importlib.reload()` dan migrasi `instance.__class__` ke kelas baru.
   - Alternatif lebih sederhana: *snapshot* state sebelum restart, lalu *restore* ke instance baru yang memiliki `component_key` yang sama.
