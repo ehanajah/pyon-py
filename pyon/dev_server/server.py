@@ -306,7 +306,13 @@ async function restart(changedFiles) {{
         await fetchAndWriteFile(filePath);
     }}
 
-    // 2. Invalidate all project modules (app, pyon, src) from the cache 
+    // 2. Snapshot state before module invalidation
+    window.__pyodide.runPython(`
+from pyon.core.app import snapshot_for_hot_reload
+snapshot_for_hot_reload()
+`);
+
+    // 3. Invalidate all project modules (app, pyon, src) from the cache 
     // so that the dependency tree is re-evaluated with freshness
     window.__pyodide.runPython(`
 import sys
@@ -317,10 +323,10 @@ for k in to_delete:
     del sys.modules[k]
 `);
 
-    // Re-inject environment variables since module cache was cleared
+    // 4. Re-inject environment variables since module cache was cleared
     await injectEnv(window.__pyodide);
 
-    // 3. Re-run the application
+    // 5. Re-run the application
     await runApp();
 }}
 

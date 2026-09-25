@@ -14,8 +14,10 @@ This module MUST NOT be imported directly by the user — use it through App.
 
 from __future__ import annotations
 
+import copy
+import sys
 from collections import deque
-from typing import Any, final
+from typing import Any, cast, final
 
 from .component import Component
 from .utils import current_component, dispatch
@@ -215,6 +217,15 @@ def _expand_tree(
                     instance._contexts = app._contexts.copy()
                 instance._contexts.update(instance._provided)
                 instance.setup()
+
+                _hot_snapshot = getattr(sys, '_pyon_hot_snapshot', None)
+                if _hot_snapshot and full_key in _hot_snapshot:
+                    _hot_snapshot = cast(dict[str, dict], _hot_snapshot)
+                    saved_state = _hot_snapshot[full_key]
+                    # Merge: pertahankan key baru dari setup(), pulihkan value lama
+                    for k in instance._state:
+                        if k in saved_state:
+                            instance._state[k] = saved_state[k]
 
                 # Connect _schedule_update with a closure that captures
                 # full_key. When the component calls set_state(), this
@@ -671,6 +682,12 @@ class App:
             instance = self.pending_mounts.popleft()
             dispatch(instance._invoke_on_mount(), instance)
 
+        if hasattr(sys, '_pyon_hot_snapshot'):
+            restored = len(sys._pyon_hot_snapshot) # type: ignore
+            del sys._pyon_hot_snapshot # type: ignore
+            if restored > 0:
+                print(f"[PyOnPy] Hot reload: restored state for {restored} components")
+
     def _update_from_key(self, key: str) -> None:
         """Incremental update cycle for a specific component.
 
@@ -895,3 +912,32 @@ def teardown() -> None:
 
         _active_app._contexts.clear()
         _active_app = None
+
+
+def snapshot_for_hot_reload() -> None:
+    """Capture _state from all compoent_map to sys._pyon_hot_snapshot.
+    
+    Called by loader.js before module invalidation.
+    """
+    global _active_app
+    if _active_app is None:
+        return
+    
+    snapshot: dict[str, dict] = {}
+    for key, inst in _active_app.component_map.items():
+        try:
+            snapshot[key] = copy.deepcopy(inst._state)
+        except Exception:  # noqa: BLE001, S110
+            pass  # Skip non-copyable state (JS proxies, etc.)
+    
+    sys._pyon_hot_snapshot = snapshot # type: ignore
+    
+    for comp in _active_app.component_map.values():
+        try:
+            comp._invoke_on_unmount()
+        except Exception:  # noqa: BLE001, S110
+            pass
+    
+    _active_app.component_map.clear()
+    _active_app.dirty_components.clear()
+    _active_app = None
