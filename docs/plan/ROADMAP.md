@@ -93,7 +93,7 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
   - [x] Pembuatan CLI `pyon build` untuk mode produksi yang menghentikan transfer file individual via *dev server HTTP requests*.
   - [x] Mengkompresi/bundling seluruh folder `src/` dan file Python proyek menjadi sebuah arsip *Virtual Filesystem* (misalnya `app.zip` atau `app.tar.gz`).
   - [x] Browser/Pyodide hanya melakukan 1 kali pengunduhan (`pyodide.unpackArchive`) dan langsung mengekstraksi seluruh proyek ke dalam memori RAM (MEMFS), menghasilkan *initial load speed* yang sangat kilat dan menyelesaikan masalah resolusi modul tanpa melakukan ratusan request HTTP berantai (*Network Waterfall*).
-- [ ] **Stateful Hot Reload (Persistensi State & Instance):**
+- [ ] **Stateful Hot Reload (Persistensi State & Instance):** (Lihat [Spesifikasi Stateful Hot Reload](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/STATEFUL_HOT_RELOAD.md))
   - Mempertahankan `_state` dan *instance* komponen yang tidak berubah saat hot reload menggunakan `importlib.reload()` dan migrasi `instance.__class__` ke kelas baru.
   - Alternatif lebih sederhana: *snapshot* state sebelum restart, lalu *restore* ke instance baru yang memiliki `component_key` yang sama.
 
