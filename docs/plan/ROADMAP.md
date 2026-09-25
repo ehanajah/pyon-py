@@ -108,3 +108,6 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 - [ ] **Native WASM Compilation & Alternatif Runtime:**
   - Eksplorasi proses kompilasi *Native WASM* (mengkonversi kode Python + Framework murni ke `.wasm` biner menggunakan *build tools* LLVM/Emscripten). Mengingat kompleksitas dependensi *build* C-extension Pyodide saat ini, target jangka pendek adalah *bundling* ZIP Pyodide, sementara kompilasi murni akan diriset secara paralel.
   - Eksplorasi backend jembatan eksekusi alternatif selain Pyodide (misalnya MicroPython WASM port).
+- [ ] **Fragment Return Support:**
+  - Mendukung kemampuan sebuah komponen untuk mengembalikan sekumpulan *node* (`list[VNode]`) atau memperkenalkan entitas `Fragment`, sehingga developer tidak lagi diwajibkan untuk membungkus hasil `render()` di dalam satu elemen tunggal (seperti `<div>`).
+  - Membutuhkan perombakan pada algoritma rekonsiliasi DOM dan manajemen *component path* (karena satu komponen bisa memiliki banyak node akar DOM).
