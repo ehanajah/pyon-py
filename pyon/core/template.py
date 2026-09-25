@@ -39,7 +39,8 @@ VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img",
              "input", "link", "meta", "param", "source", "track", "wbr"}
 
 TOKEN_RE = re.compile(
-    r"(?P<INTERPOLATION>\{\{.*?\}\})"
+    r"(?P<COMMENT><!--.*?-->)"
+    r"|(?P<INTERPOLATION>\{\{.*?\}\})"
     r"|(?P<STATEMENT>\{%.*?%\})"
     r"|(?P<ENDTAG></\s*(?P<endname>[a-zA-Z][\w:-]*)\s*>)"
     r"|(?P<STARTTAG><\s*(?P<startname>[a-zA-Z][\w:-]*)(?P<attrs>(?:\s+[^<>]*?)?)\s*(?P<selfclose>/)?>)",
@@ -67,7 +68,10 @@ def tokenize(template: str) -> list[Token]:
     for m in TOKEN_RE.finditer(template):
         if m.start() > pos:
             tokens.append(Token("TEXT", template[pos:m.start()]))
-        if m.lastgroup == "INTERPOLATION":
+        
+        if m.lastgroup == "COMMENT":
+            pass  # Skip HTML comments entirely so they aren't rendered as text nodes
+        elif m.lastgroup == "INTERPOLATION":
             tokens.append(Token("INTERPOLATION", m.group()[2:-2].strip()))
         elif m.lastgroup == "STATEMENT":
             value = m.group()[2:-2].strip()
