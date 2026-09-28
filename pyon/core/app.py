@@ -14,8 +14,10 @@ This module MUST NOT be imported directly by the user — use it through App.
 
 from __future__ import annotations
 
+import copy
+import sys
 from collections import deque
-from typing import Any, final
+from typing import Any, cast, final
 
 from .component import Component
 from .utils import current_component, dispatch
@@ -64,7 +66,11 @@ def _check_sibling_keys(children: Children):
 
     for child in component_children:
         if not child.key and isinstance(child.tag, type):
-            child.key = child.tag.__name__
+            ast_seq = child.props.get("_ast_seq")
+            if ast_seq is not None:
+                child.key = f"{child.tag.__name__}_{ast_seq}"
+            else:
+                child.key = child.tag.__name__
 
     key_counts = Counter(child.key for child in component_children)
     duplicate_keys = {key for key, count in key_counts.items() if count > 1 and isinstance(key, str)}
@@ -94,6 +100,7 @@ def _expand_tree(
     parent_key: str,
     component_map: dict[str, Component],
     app: App,
+    _seen_keys: set[str] | None = None,
 ) -> VNode:
     """Recursively expands a VNode tree into a pure HTML tree.
 
@@ -140,18 +147,38 @@ def _expand_tree(
     if isinstance(node.tag, type) and issubclass(node.tag, Component):
         # Get local key from props — mandatory for all custom components.
         # Key is used as a unique identifier for the component in component_map.
-        local_key = node.props.get("key") or node.tag.__name__
+        # Precedence: Explicit 'key' > Auto-generated '_ast_seq' > Component class name
+        local_key = node.props.get("key")
+        
+        # Pop _ast_seq so it doesn't leak into the component's actual props
+        ast_seq = node.props.pop("_ast_seq", None)
+        
         if local_key is None:
-            raise ValueError(
-                f"'{node.tag.__name__}' must have 'key' props. "
-                f'Example: h({node.tag.__name__}, {{"key": "unique-name"}})'
-            )
+            if ast_seq is not None:
+                local_key = f"{node.tag.__name__}_{ast_seq}"
+            else:
+                local_key = node.tag.__name__
+                
         local_key = str(local_key)
 
         # Build hierarchical full key from parent_key + local_key.
         # Format: "TodoApp.error-boundary.todo-item-1"
         # Full key ensures global uniqueness even if local_key is the same at different levels.
         full_key = f"{parent_key}.{local_key}" if parent_key else local_key
+
+        # ── Collision detection ──
+        # Track all full_keys claimed during this expansion cycle.
+        if _seen_keys is None:
+            _seen_keys = set()
+
+        if full_key in _seen_keys:
+            raise ValueError(
+                f"Duplicate component key '{full_key}' detected in the render tree. "
+                f"Two '{node.tag.__name__}' components under the same parent resolved to "
+                f"the same identity. Give each a unique 'key' prop.\n"
+                f'Example: h({node.tag.__name__}, {{"key": "unique-name"}})'
+            )
+        _seen_keys.add(full_key)
 
         # Inject children into props so it can be used with the Slot pattern.
         # Create a copy of props to avoid mutating the original VNode props.
@@ -191,6 +218,15 @@ def _expand_tree(
                 instance._contexts.update(instance._provided)
                 instance.setup()
 
+                _hot_snapshot = getattr(sys, '_pyon_hot_snapshot', None)
+                if _hot_snapshot and full_key in _hot_snapshot:
+                    _hot_snapshot = cast(dict[str, dict], _hot_snapshot)
+                    saved_state = _hot_snapshot[full_key]
+                    # Merge: pertahankan key baru dari setup(), pulihkan value lama
+                    for k in instance._state:
+                        if k in saved_state:
+                            instance._state[k] = saved_state[k]
+
                 # Connect _schedule_update with a closure that captures
                 # full_key. When the component calls set_state(), this
                 # closure will be called → App._update_from_key(full_key).
@@ -225,7 +261,7 @@ def _expand_tree(
             finally:
                 current_component.reset(token)
                 
-            expanded = _expand_tree(child_vnode, path, full_key, component_map, app)
+            expanded = _expand_tree(child_vnode, path, full_key, component_map, app, _seen_keys)
 
             # Mark the expanded VNode with the component's full_key.
             # Used by _find_path_by_key() and _collect_keys_in_tree().
@@ -257,7 +293,7 @@ def _expand_tree(
                     child_vnode = instance._render()
                 finally:
                     current_component.reset(token)
-                expanded = _expand_tree(child_vnode, path, full_key, component_map, app)
+                expanded = _expand_tree(child_vnode, path, full_key, component_map, app, _seen_keys)
                 expanded.component_key = full_key
                 expanded.key = node.key
                 return expanded
@@ -310,7 +346,7 @@ def _expand_tree(
             # Recursively expand child VNode with path appended by index.
             # "0.1" + child index 3 → "0.1.3"
             expanded_children.append(
-                _expand_tree(child, f"{path}.{i}", parent_key, component_map, app)
+                _expand_tree(child, f"{path}.{i}", parent_key, component_map, app, _seen_keys)
             )
         else:
             # Child is not a VNode (text string, number, etc.) — pass as is.
@@ -646,6 +682,12 @@ class App:
             instance = self.pending_mounts.popleft()
             dispatch(instance._invoke_on_mount(), instance)
 
+        if hasattr(sys, '_pyon_hot_snapshot'):
+            restored = len(sys._pyon_hot_snapshot) # type: ignore
+            del sys._pyon_hot_snapshot # type: ignore
+            if restored > 0:
+                print(f"[PyOnPy] Hot reload: restored state for {restored} components")
+
     def _update_from_key(self, key: str) -> None:
         """Incremental update cycle for a specific component.
 
@@ -870,3 +912,32 @@ def teardown() -> None:
 
         _active_app._contexts.clear()
         _active_app = None
+
+
+def snapshot_for_hot_reload() -> None:
+    """Capture _state from all compoent_map to sys._pyon_hot_snapshot.
+    
+    Called by loader.js before module invalidation.
+    """
+    global _active_app
+    if _active_app is None:
+        return
+    
+    snapshot: dict[str, dict] = {}
+    for key, inst in _active_app.component_map.items():
+        try:
+            snapshot[key] = copy.deepcopy(inst._state)
+        except Exception:  # noqa: BLE001, S110
+            pass  # Skip non-copyable state (JS proxies, etc.)
+    
+    sys._pyon_hot_snapshot = snapshot # type: ignore
+    
+    for comp in _active_app.component_map.values():
+        try:
+            comp._invoke_on_unmount()
+        except Exception:  # noqa: BLE001, S110
+            pass
+    
+    _active_app.component_map.clear()
+    _active_app.dirty_components.clear()
+    _active_app = None

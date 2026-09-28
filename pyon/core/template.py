@@ -39,7 +39,8 @@ VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img",
              "input", "link", "meta", "param", "source", "track", "wbr"}
 
 TOKEN_RE = re.compile(
-    r"(?P<INTERPOLATION>\{\{.*?\}\})"
+    r"(?P<COMMENT><!--.*?-->)"
+    r"|(?P<INTERPOLATION>\{\{.*?\}\})"
     r"|(?P<STATEMENT>\{%.*?%\})"
     r"|(?P<ENDTAG></\s*(?P<endname>[a-zA-Z][\w:-]*)\s*>)"
     r"|(?P<STARTTAG><\s*(?P<startname>[a-zA-Z][\w:-]*)(?P<attrs>(?:\s+[^<>]*?)?)\s*(?P<selfclose>/)?>)",
@@ -67,7 +68,10 @@ def tokenize(template: str) -> list[Token]:
     for m in TOKEN_RE.finditer(template):
         if m.start() > pos:
             tokens.append(Token("TEXT", template[pos:m.start()]))
-        if m.lastgroup == "INTERPOLATION":
+        
+        if m.lastgroup == "COMMENT":
+            pass  # Skip HTML comments entirely so they aren't rendered as text nodes
+        elif m.lastgroup == "INTERPOLATION":
             tokens.append(Token("INTERPOLATION", m.group()[2:-2].strip()))
         elif m.lastgroup == "STATEMENT":
             value = m.group()[2:-2].strip()
@@ -93,9 +97,10 @@ ELIF_RE = re.compile(r"^elif\s+(.+)$")
 
 def parse(tokens: list[Token]) -> ElementNode:
     pos = 0
+    seq_counter = 0
 
     def parse_nodes(stop_types: set[str]) -> list[Node]:
-        nonlocal pos
+        nonlocal pos, seq_counter
         nodes = []
         while pos < len(tokens) and tokens[pos].type not in stop_types:
             tok = tokens[pos]
@@ -111,8 +116,14 @@ def parse(tokens: list[Token]) -> ElementNode:
                 nodes.append(InterpolationNode(tok.value))
                 pos += 1
             elif tok.type == "STARTTAG":
-                props, selfclose = tok.extra["props"], tok.extra["selfclose"]
+                props, selfclose = tok.extra["props"].copy(), tok.extra["selfclose"]
                 pos += 1
+                
+                # Assign static sequence identifier for component tags
+                if tok.value[0].isupper():
+                    props["_ast_seq"] = str(seq_counter)
+                    seq_counter += 1
+                
                 children = [] if selfclose else parse_nodes({"ENDTAG"})
                 if not selfclose:
                     pos += 1  # skip ENDTAG
@@ -164,7 +175,10 @@ def eval_expr(expr: str, instance: Any, local_scope: dict) -> Any:
     import sys
     globals_dict = sys.modules[instance.__class__.__module__].__dict__.copy()
     globals_dict["self"] = instance
-    return eval(expr, globals_dict, local_scope)
+    try:
+        return eval(expr, globals_dict, local_scope)
+    except Exception as e:
+        raise TemplateError(f"Error evaluating expression '{expr}' at {instance.__class__.__name__}.render(): {e}")
 
 INTERP_IN_ATTR_RE = re.compile(r"\{\{(.*?)\}\}")
 

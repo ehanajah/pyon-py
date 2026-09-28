@@ -43,10 +43,10 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
 - [x] **Pembatalan Request HTTP (AbortController):**
   - [x] Mengintegrasikan Javascript `AbortController` ke modul `pyon.http`.
   - [x] Mengaitkan pembatalan ke *lifecycle* komponen. Jika `on_unmount` dipanggil saat request (seperti `fetch`) masih berjalan, *request* wajib dibatalkan otomatis agar tidak memicu `set_state` pada komponen yang telah musnah (mencegah *memory leak* & *exception*).
-- [ ] **Distribusi PyOn-Py sebagai Package & CLI Tool:** (Lihat [Spesifikasi CLI](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/CLI_PACKAGE.md))
+- [x] **Distribusi PyOn-Py sebagai Package & CLI Tool:** (Lihat [Spesifikasi CLI](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/CLI_PACKAGE.md))
   - [x] **Fase 1 (Refactoring & CLI):** Membuat direktori `pyon/cli/` berbasis `click` (`dev`, `init`), memindahkan `dev_server`, dan menambahkan `pyproject.toml` dengan entry point `pyon`.
   - [x] **Fase 2 (Isolasi Repo):** Mengekstrak direktori `pyon/` menjadi repositori murni `pyon-py` yang bersih dari kode implementasi/contoh aplikasi.
-  - [ ] **Fase 3 (Publikasi PyPI):** Membangun `dist/*` via modul `build` dan mengunggahnya ke TestPyPI lalu PyPI asli (rilis v0.1.0).
+  - [x] **Fase 3 (Publikasi PyPI):** Membangun `dist/*` via modul `build` dan mengunggahnya ke TestPyPI lalu PyPI asli (rilis v0.1.1 via Hatchling).
 - [x] **Manajemen Dependensi Dua-Lapisan (Host & Browser):** (Lihat [Spesifikasi Dependensi](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/DEPENDENCY_MANAGEMENT.md))
   - [x] Implementasi CLI `pyon add` untuk menambahkan paket ke `pyon.toml` (mendukung flag `--dev` dan menjaring *transitive C-extension*).
   - [x] Implementasi CLI `pyon remove` yang menyertakan *pruning* pada `packages_cache` dan *lock file*.
@@ -73,25 +73,41 @@ Daftar berikut merekam fitur-fitur fundamental yang telah lunas dikerjakan dan d
   - Pembuatan modul manajemen status global reaktif yang dapat diinjeksi atau dibagikan antar komponen di luar lingkup pewarisan pohon `Context API`, mirip dengan Vuex/Pinia atau sistem *Signals*.
 - [x] **EventEmitter & Generic Event Bus:**
   - Pembuatan sistem *Pub-Sub* murni tanpa status (`pyon/core/bus.py`) untuk memfasilitasi komunikasi antar komponen dan integrasi ekstensi pihak ketiga secara aman, lengkap dengan pembersihan listener otomatis `use_event` saat komponen di-*unmount*.
-- [ ] **Template Syntax & Alternatif Penulisan UI:**
-  - Penjajakan dukungan sintaksis deklaratif opsional berbasis string HTML + Jinja-like yang di-parse menjadi VNode saat runtime.
-- [ ] **Sistem Client Session HTTP Terpusat:**
-  - Pembuatan kelas `HTTPClient` (mirip `httpx.Client`) untuk menyimpan konfigurasi *stateful* berulang seperti `base_url`, `default_headers`, atau *Auth Tokens*.
-- [ ] **Server-Sent Events (SSE) & WebSockets:**
-  - Sub-modul `pyon/http/sse.py` dan `ws.py` untuk mengelola protokol *real-time* dan *streaming*, lengkap dengan status *re-render* yang reaktif.
+- [x] **Template Syntax & Alternatif Penulisan UI:**
+  - [x] Sintaksis deklaratif opsional berbasis string HTML (Jinja-like) yang di-parse menjadi VNode saat runtime (`pyon/core/template.py`).
+  - [x] **AST Sequence Tagging:** Generator identifier statis (`_ast_seq`) pada fase kompilasi/parsing untuk menyelesaikan masalah render bersyarat (*conditional rendering*) tanpa mengharuskan developer menulis `key` manual (terinspirasi dari Blazor/Vue).
+  - [x] **Collision Validation:** Peringatan bentrok key (*duplicate component key detected*) pada saat fase `_expand_tree` untuk mencegah tertimpanya state pada pendekatan arsitektur *Flat Component Map*.
+- [x] **Sistem Client Session HTTP Terpusat:**
+  - [x] Pembuatan kelas `HTTPClient` (mirip `httpx.Client`) untuk menyimpan konfigurasi *stateful* berulang seperti `base_url`, `default_headers`, atau *Auth Tokens*. Terintegrasi dengan pembatalan request (AbortController) yang sudah ada.
+- [x] **Server-Sent Events (SSE) & WebSockets:**
+  - [x] `WebSocketClient` (`pyon/http/ws.py`) — client WebSocket dengan auto-cleanup lifecycle, JSON serialization, dan ready state tracking.
+  - [x] `EventSourceClient` (`pyon/http/sse.py`) — client SSE dengan dukungan named events (`on()`), auto-cleanup lifecycle.
+  - [x] Arsitektur 3-lapis platform-agnostic: Protocol (`_protocol/http.py`) → Adapter (`impl/pyodide_impl/http.py`) → Client (`pyon/http/`). Seluruh impor `js` dan `pyodide.ffi` terisolasi di lapisan Adapter.
 
 ---
 
 ## Prioritas 3: Nanti (Ekosistem, Build System & Production Readiness)
 *Fokus jangka panjang untuk kesiapan penyampaian produksi berkecepatan tinggi dan kelengkapan infrastruktur perkakas pendukung.*
 
-- [ ] **Build System & Production Optimization (WASM):**
-  - Implementasi komandan sistem build untuk produksi yang menonaktifkan fitur pemuat mode dev (*dev tools/server fetching* file per file).
-  - Merapikan (minify), memampatkan (bundle), dan menyatukan seluruh berkas Python menjadi satu kesatuan paket kompresi (*virtual filesystem zip*) demi percepatan muat perdana (*initial load payload speed*) yang kilat.
-- [ ] **Stateful Hot Reload (Persistensi State & Instance):**
-  - Mempertahankan `_state` dan *instance* komponen yang tidak berubah saat hot reload menggunakan `importlib.reload()` dan migrasi `instance.__class__` ke kelas baru.
-  - Alternatif lebih sederhana: *snapshot* state sebelum restart, lalu *restore* ke instance baru yang memiliki `component_key` yang sama.
-- [ ] **Package & Module System Resolution:**
-  - Penyempurnaan manajemen hierarki folder dan modul untuk proyek berskala besar di atas sistem berkas virtual Pyodide TANPA mengandalkan daftar impor linear kaku di `loader.js`.
-- [ ] **`wasm_impl.py` (Native WASM / MicroPython Bridge):**
-  - Eksplorasi backend jembatan eksekusi alternatif selain Pyodide (misalnya MicroPython untuk WASM atau Python native WASM runtime masa depan) untuk meringankan konsumsi memori dan ukuran bodi runtime.
+- [x] **Build System & Production Bundling (Pyodide Virtual FS):** (Lihat [Spesifikasi Build System](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/BUILD_SYSTEM.md))
+  - [x] Pembuatan CLI `pyon build` untuk mode produksi yang menghentikan transfer file individual via *dev server HTTP requests*.
+  - [x] Mengkompresi/bundling seluruh folder `src/` dan file Python proyek menjadi sebuah arsip *Virtual Filesystem* (misalnya `app.zip` atau `app.tar.gz`).
+  - [x] Browser/Pyodide hanya melakukan 1 kali pengunduhan (`pyodide.unpackArchive`) dan langsung mengekstraksi seluruh proyek ke dalam memori RAM (MEMFS), menghasilkan *initial load speed* yang sangat kilat dan menyelesaikan masalah resolusi modul tanpa melakukan ratusan request HTTP berantai (*Network Waterfall*).
+- [x] **Stateful Hot Reload (Persistensi State & Instance):** (Lihat [Spesifikasi Stateful Hot Reload](file:///home/rnd/Documents/projects/pyon-py/docs/plan/specs/STATEFUL_HOT_RELOAD.md))
+  - [x] Mempertahankan `_state` dan *instance* komponen yang tidak berubah saat hot reload menggunakan `importlib.reload()` dan migrasi `instance.__class__` ke kelas baru.
+  - [x] Alternatif lebih sederhana: *snapshot* state sebelum restart, lalu *restore* ke instance baru yang memiliki `component_key` yang sama.
+
+---
+
+## Prioritas 4: Eksplorasi Arsitektur Lanjutan (R&D)
+*Fitur konseptual dan riset arsitektur masa depan yang membutuhkan perombakan mesin framework.*
+
+- [ ] **Async Components & Lazy Loading Boundaries:**
+  - Penerapan komponen asinkron (mirip `React.lazy` & `Suspense`) sehingga VDOM *engine* PyOn-Py bisa ditangguhkan (*yield*) saat ekspansi pohon komponen.
+  - Jika ini berhasil diterapkan, kita bisa mempertimbangkan pembuatan *Custom Import Finder (PEP 302)* yang melakukan *lazy-loading* file `.py` individual secara on-demand via jaringan, tanpa memblokir perenderan *main thread*.
+- [ ] **Native WASM Compilation & Alternatif Runtime:**
+  - Eksplorasi proses kompilasi *Native WASM* (mengkonversi kode Python + Framework murni ke `.wasm` biner menggunakan *build tools* LLVM/Emscripten). Mengingat kompleksitas dependensi *build* C-extension Pyodide saat ini, target jangka pendek adalah *bundling* ZIP Pyodide, sementara kompilasi murni akan diriset secara paralel.
+  - Eksplorasi backend jembatan eksekusi alternatif selain Pyodide (misalnya MicroPython WASM port).
+- [ ] **Fragment Return Support:**
+  - Mendukung kemampuan sebuah komponen untuk mengembalikan sekumpulan *node* (`list[VNode]`) atau memperkenalkan entitas `Fragment`, sehingga developer tidak lagi diwajibkan untuk membungkus hasil `render()` di dalam satu elemen tunggal (seperti `<div>`).
+  - Membutuhkan perombakan pada algoritma rekonsiliasi DOM dan manajemen *component path* (karena satu komponen bisa memiliki banyak node akar DOM).

@@ -32,6 +32,12 @@ pyodide_version = "314.0.6"
 pyodide_release = "core"
 local_pyodide = false
 port = 8000
+
+[build]
+outdir = "dist"
+bytecode = true
+include_pyodide = false
+
 """
     create_file(cwd / "pyon.toml", pyon_toml)
 
@@ -53,6 +59,8 @@ pyodide_cache/
 
 # Misc
 .env
+dist/
+
 """
     create_file(cwd / ".gitignore", gitignore_content)
 
@@ -128,7 +136,7 @@ if __name__ == "__main__":
     create_file(cwd / "app.py", app_py)
 
     # src/App.py
-    src_app_py = """from pyon.core import Component, h
+    src_app_py = """from pyon.core import Component
 from src.pages.Index import Index
 
 

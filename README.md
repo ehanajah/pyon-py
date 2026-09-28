@@ -161,13 +161,15 @@ class Counter(Component):
     def setup(self):
         self._state = {"count": 0}
 
-    def increment(self):
+    def increment(self, e):
         self.set_state({"count": self._state["count"] + 1})
 
     def render(self):
-        return h("button", {"on_click": self.increment}, [
-            f"Clicked {self._state['count']} times"
-        ])
+        return """
+        <button on_click="{{ self.increment }}">
+            Clicked {{ self._state['count'] }} times
+        </button>
+        """
 ```
 
 > [!IMPORTANT]
@@ -186,14 +188,17 @@ class Greeting(Component):
         self._state = {"excited": False}
 
     def render(self):
-        name = self.props.get("name", "World")
-        suffix = "!" if self._state["excited"] else "."
-        return h("span", {}, [f"Hello, {name}{suffix}"])
+        return """
+        <span>Hello, {{ self.props.get("name", "World") }}{{ "!" if self._state["excited"] else "." }}</span>
+        """
 ```
 
 **Using the component:**
 ```python
-h(Greeting, {"key": "greet", "name": "Alice"})
+# In another component's template:
+"""
+<Greeting name="Alice" />
+"""
 ```
 
 #### `set_state(updates)`
@@ -212,14 +217,7 @@ def handle_response(self, data):
 The `render()` method must return either a **VNode** (via `h()`) or an **HTML template string**.
 
 ```python
-# Option 1: VNode (programmatic)
-def render(self):
-    return h("div", {"class": "card"}, [
-        h("h2", {}, [self.props["title"]]),
-        h("p", {}, [self._state["content"]]),
-    ])
-
-# Option 2: Template string (declarative)
+# Option 1: Template string (declarative - recommended)
 def render(self):
     return """
     <div class="card">
@@ -227,6 +225,13 @@ def render(self):
         <p>{{ self._state["content"] }}</p>
     </div>
     """
+
+# Option 2: VNode (programmatic)
+def render(self):
+    return h("div", {"class": "card"}, [
+        h("h2", {}, [self.props["title"]]),
+        h("p", {}, [self._state["content"]]),
+    ])
 ```
 
 ### Lifecycle Hooks
@@ -269,11 +274,15 @@ class ErrorBoundary(Component):
         self.set_state({"error": str(error)})
 
     def render(self):
-        if self._state["error"]:
-            return h("div", {"class": "error"}, [
-                f"Something went wrong: {self._state['error']}"
-            ])
-        return h("div", {}, self.props.get("children", []))
+        return """
+        {% if self._state["error"] %}
+            <div class="error">
+                Something went wrong: {{ self._state["error"] }}
+            </div>
+        {% else %}
+            <div>{{ self.props.get("children", []) }}</div>
+        {% endif %}
+        """
 ```
 
 ### Context (Provide / Inject)
@@ -287,7 +296,7 @@ class ThemeProvider(Component):
         self.provide("theme", "dark")
 
     def render(self):
-        return h("div", {}, self.props.get("children", []))
+        return """<div>{{ self.props.get("children", []) }}</div>"""
 
 # Consumer (any descendant)
 class ThemedButton(Component):
@@ -295,7 +304,7 @@ class ThemedButton(Component):
         self.theme = self.inject("theme", "light")  # "dark"
 
     def render(self):
-        return h("button", {"class": self.theme}, ["Click"])
+        return """<button class="{{ self.theme }}">Click</button>"""
 ```
 
 Context can also be provided at the application level via `app.provide()` (see [App](#app--application-lifecycle)).
@@ -313,7 +322,7 @@ class InputFocus(Component):
         self.refs["input"].focus()
 
     def render(self):
-        return h("input", {"ref": "input", "type": "text"})
+        return """<input ref="input" type="text" />"""
 ```
 
 ---
@@ -352,14 +361,19 @@ h(Card, {"key": "card-1", "title": "My Card"}, [
 ])
 ```
 
-> [!TIP]
-> Always provide a `key` prop for components and list items to enable efficient keyed reconciliation during re-rendering.
+> [!IMPORTANT]
+> **Key Prop Requirements:**
+> - When rendering programmatically with `h()`, you **must** provide a stable `key` prop if you render more than 1 Component node under the same parent Component node.
+> - When using **Template Syntax**, the parser automatically handles component identity via AST Sequence Tagging. You only need to provide a `key` prop manually inside loops (`{% for %}`).
 
 ---
 
 ## Template Syntax
 
 Components can return HTML template strings from `render()` instead of using `h()`. Templates are parsed into an AST once and cached per class — subsequent re-renders only re-evaluate expressions.
+
+> [!WARNING]
+> **Avoid Python Logic Before Return:** Do not use `f-strings`, string concatenation, or native Python `if`/`for` statements to conditionally return different template strings. Because the template is parsed and cached at the class level during the first render, any external logic or dynamic string interpolation outside the template syntax will only be evaluated **once**. You must always use a single static string containing PyOn-Py's built-in `{% if %}` and `{% for %}` syntax for dynamic UI rendering.
 
 ### Interpolation
 
@@ -417,10 +431,13 @@ Wrap handler expressions in double quotes **and** double curly braces:
 ```python
 def render(self):
     return """
-    <button on_click="{{ lambda e: self.increment() }}">Click me</button>
+    <button on_click="{{ lambda e: self.increment(e) }}">Click me</button>
     <button on_click="{{ self.reset }}">Reset</button>
     """
 ```
+
+> [!IMPORTANT]
+> **Event Parameter is Required:** Browser events (like `click`, `input`, etc.) always pass a DOM event object to their handlers. Therefore, your Python methods (`def reset(self, e):`) and lambda functions (`lambda e: ...`) **must** accept at least one parameter for the event, even if you don't use it. Otherwise, Pyodide will raise a `TypeError` for mismatched arguments.
 
 ### Child Components in Templates
 
@@ -466,9 +483,11 @@ class Card(Component):
     """
 
     def render(self):
-        return h("div", {"class": "card"}, [
-            h("h2", {}, [self.props["title"]])
-        ])
+        return """
+        <div class="card">
+            <h2>{{ self.props["title"] }}</h2>
+        </div>
+        """
 ```
 
 **How it works:**
@@ -559,9 +578,13 @@ class UserProfile(Component):
         self.use_store(user_store)  # Auto-subscribes, auto-unsubscribes on unmount
 
     def render(self):
-        if user_store.is_authenticated:
-            return h("p", {}, [f"Welcome, {user_store.username}!"])
-        return h("p", {}, ["Please log in."])
+        return """
+        {% if user_store.is_authenticated %}
+            <p>Welcome, {{ user_store.username }}!</p>
+        {% else %}
+            <p>Please log in.</p>
+        {% endif %}
+        """
 ```
 
 > [!IMPORTANT]
@@ -601,7 +624,7 @@ class NotificationBar(Component):
         self.set_state({"message": message})
 
     def render(self):
-        return h("div", {"class": "toast"}, [self._state["message"]])
+        return """<div class="toast">{{ self._state["message"] }}</div>"""
 ```
 
 ```python
@@ -624,6 +647,8 @@ PyOn-Py includes a client-side SPA router integrated with browser history.
 from pyon.core import create_app
 from pyon.router import Router, RouterView, Link, RouteDef
 
+# `key` is optional, but if there are multiple routes with the same component,
+# you must provide a unique key to avoid conflicts
 routes: list[RouteDef] = [
     {"path": "/", "component": HomePage, "key": "home"},
     {"path": "/users/:id", "component": UserPage, "key": "user"},
@@ -644,13 +669,15 @@ Renders the component matching the current URL path. Place it in your root compo
 ```python
 class RootComponent(Component):
     def render(self):
-        return h("div", {}, [
-            h("nav", {}, [
-                h(Link, {"key": "home-link", "to": "/"}, ["Home"]),
-                h(Link, {"key": "about-link", "to": "/about"}, ["About"]),
-            ]),
-            h(RouterView, {"key": "router-view"}),
-        ])
+        return """
+        <div>
+            <nav>
+                <Link to="/">Home</Link>
+                <Link to="/about">About</Link>
+            </nav>
+            <RouterView />
+        </div>
+        """
 ```
 
 ### `Link`
@@ -658,7 +685,7 @@ class RootComponent(Component):
 Client-side navigation link that prevents full page reloads:
 
 ```python
-h(Link, {"to": "/users/42"}, ["View User 42"])
+"""<Link to="/users/42">View User 42</Link>"""
 ```
 
 - Renders an `<a>` element with SPA navigation
@@ -688,9 +715,7 @@ class MyComponent(Component):
         # self.router.replace("/")   # replace current entry
 
     def render(self):
-        current = self.router.current_path   # e.g. "/users/42"
-        query = self.router.query            # e.g. {"page": "2"}
-        return h("div", {}, [current])
+        return """<div>{{ self.router.current_path }}</div>"""
 ```
 
 ---
@@ -755,10 +780,12 @@ class Card(Component[CardProps]):
     def render(self):
         # self.props is typed as CardProps
         # IDE autocomplete works for self.props["title"]
-        return h("div", {}, [
-            h("h2", {}, [self.props["title"]]),
-            h("p", {}, [self.props["subtitle"]]),
-        ])
+        return """
+        <div>
+            <h2>{{ self.props["title"] }}</h2>
+            <p>{{ self.props["subtitle"] }}</p>
+        </div>
+        """
 ```
 
 ### Typed State
@@ -778,7 +805,7 @@ class Counter(Component[BaseProps, CounterState]):
     def setup(self):
         self._state: CounterState = {"count": 0, "loading": False}
 
-    def increment(self):
+    def increment(self, e):
         # self._state is typed as CounterState
         self.set_state({"count": self._state["count"] + 1})
 ```

@@ -121,44 +121,7 @@ def _get_lock_packages() -> dict[str, str]:
     except Exception:
         return {}
 
-def _collect_py_files() -> list[str]:
-    """
-    Recursively scan the framework and PROJECT_ROOT, and return a list of .py paths.
-    """
-    buckets: list[Path] = []
-
-    # 1. Collect framework files from site-packages or src
-    for path in sorted(PYON_PKG_DIR.rglob("*.py")):
-        rel_pkg = path.relative_to(PYON_PKG_DIR)
-        if any(part in IGNORED_DIRS for part in rel_pkg.parts):
-            continue
-        buckets.append(path.relative_to(PYON_PKG_DIR.parent))
-
-    # 2. Collect user files
-    for path in sorted(PROJECT_ROOT.rglob("*.py")):
-        rel = path.relative_to(PROJECT_ROOT)
-        
-        # Skip ignored folders
-        if any(part in IGNORED_DIRS for part in rel.parts):
-            continue
-
-        # This prevents duplicate entries if the dev server is running from the framework repo itself
-        if rel.parts[0] == "pyon":
-            continue
-
-        buckets.append(rel)
-
-    # Sort by length, then by whether it's an __init__.py file, and finally by path
-    def sort_key(p: Path) -> tuple:
-        is_init = 0 if p.name == "__init__.py" else 1
-        return (len(p.parts), is_init, str(p))
-
-    buckets.sort(key=sort_key)
-
-    result = [str(p).replace("\\", "/") for p in buckets]
-
-    return result
-
+from pyon.cli.utils.file_collector import collect_py_files as _collect_py_files
 
 # ---------------------------------------------------------------------------
 # Generate loader.js
@@ -179,7 +142,7 @@ def _generate_loader_js() -> str:
     dev_config = _get_dev_config()
     use_local_pyodide = dev_config.get("local_pyodide", False)  # For future use
     pyodide_version = dev_config.get("pyodide_version", PYODIDE_VERSION)
-    pyodide_cdn = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/pyodide.js"
+    pyodide_url = f"https://cdn.jsdelivr.net/pyodide/v{pyodide_version}/full/pyodide.js"
     lock_pkgs = _get_lock_packages()
     lock_json = json.dumps(lock_pkgs, indent=4)
 
@@ -196,7 +159,7 @@ const PY_FILES = {files_json};
 const PACKAGES = {deps_json};
 const USE_LOCAL_PYODIDE = '{use_local_pyodide}' === 'False' ? false : true;
 const LOCK_PACKAGES = {lock_json};
-const PYODIDE_CDN = "{pyodide_cdn}";
+const PYODIDE_URL = "{pyodide_url}";
 
 // Environment variables (only PYON_ prefixed)
 // Do not store sensitive data here
@@ -240,7 +203,7 @@ async function initPyOnPy() {{
 
     try {{
         setStatus("Fetching Pyodide " + PYODIDE_VERSION + " script...");
-        const pyodideUrl = USE_LOCAL_PYODIDE ? "/pyodide/pyodide.js" : PYODIDE_CDN;
+        const pyodideUrl = USE_LOCAL_PYODIDE ? "/pyodide/pyodide.js" : PYODIDE_URL;
         await loadScript(pyodideUrl);
 
         setStatus("Loading Pyodide runtime...");
@@ -343,7 +306,13 @@ async function restart(changedFiles) {{
         await fetchAndWriteFile(filePath);
     }}
 
-    // 2. Invalidate all project modules (app, pyon, src) from the cache 
+    // 2. Snapshot state before module invalidation
+    window.__pyodide.runPython(`
+from pyon.core.app import snapshot_for_hot_reload
+snapshot_for_hot_reload()
+`);
+
+    // 3. Invalidate all project modules (app, pyon, src) from the cache 
     // so that the dependency tree is re-evaluated with freshness
     window.__pyodide.runPython(`
 import sys
@@ -354,10 +323,10 @@ for k in to_delete:
     del sys.modules[k]
 `);
 
-    // Re-inject environment variables since module cache was cleared
+    // 4. Re-inject environment variables since module cache was cleared
     await injectEnv(window.__pyodide);
 
-    // 3. Re-run the application
+    // 5. Re-run the application
     await runApp();
 }}
 
