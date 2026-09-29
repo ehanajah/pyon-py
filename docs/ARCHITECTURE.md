@@ -36,7 +36,8 @@ sequenceDiagram
         loop Setiap Node dalam Tree
             alt Jika tag adalah Component Class
                 ExpandTree->>Component: __init__(props) [Instansiasi]
-                ExpandTree->>Component: on_mount()
+                ExpandTree->>Component: setup() [Inisiasi State]
+                ExpandTree->>App: Tambahkan ke pending_mounts
                 ExpandTree->>Component: inject _schedule_update closure
                 ExpandTree->>Component: set _dom_path
                 ExpandTree->>Component: render()
@@ -54,6 +55,8 @@ sequenceDiagram
         Bridge->>Bridge: _apply_props() (binding js event & create_proxy)
         Bridge->>DOM: container.innerHTML = ""
         Bridge->>DOM: container.appendChild(built_element)
+        
+        App->>Component: _invoke_on_mount() (Loop seluruh pending_mounts)
     end
 
     %% FASE RUNTIME
@@ -62,7 +65,14 @@ sequenceDiagram
         
         DOM->>Bridge: [Trigger JS Event dari Browser]
         Bridge->>Component: Eksekusi event proxy (misal: onClick)
-        Component->>Component: set_state(updates)
+        Component->>Component: set_state(updates) (Simpan ke _updates, _dirty=True)
+        Component->>App: _enqueue_dirty() -> schedule_flush(comp)
+        App->>App: Masukkan ke App.dirty_components
+        App->>DOM: Antrekan Microtask (queueMicrotask)
+        DOM-->>App: Eksekusi Microtask (_run_flush)
+        App->>App: flush_updates() (Proses dirty_components)
+        App->>Component: execute_update()
+        Component->>Component: Eksekusi antrean _updates
         Component->>App: _schedule_update(key)
         
         App->>App: _update_from_key(key)
@@ -118,19 +128,21 @@ Fase ini terjadi saat aplikasi pertama kali dimuat di browser.
 * **Fungsi dan Variabel Terkait**:
   - **Argumen**: `node` (VNode saat ini), `path` (lokasi DOM berbasis indeks seperti "0.1"), `parent_key` (kunci parent hierarkis), `component_map` (peta `full_key` ke instance), dan `app` (referensi induk).
   - **Instansiasi Komponen**: Jika `node.tag` adalah referensi ke class turunan `Component`, sistem mengekstrak `props["key"]`, membuat kunci hierarkis (`full_key`), dan membuat instance (objek) dari kelas tersebut.
-  - **Siklus Hidup Awal**: Memanggil `instance.on_mount()` secara berurutan.
+  - **Inisiasi State**: Memanggil `instance.setup()` segera setelah instansiasi agar developer dapat mendeklarasikan state awal atau menyambungkan konteks.
+  - **Antrean Mount**: Menambahkan instance baru ke dalam `app.pending_mounts` agar metode `on_mount` dipanggil belakangan setelah DOM dirender.
   - **Binding Reaktivitas**: Menyuntikkan _closure_ ke dalam instance bernama `_schedule_update` yang dikaitkan kuat (bind) pada fungsi pembaruan inkremental `app._update_from_key(full_key)`.
   - **Manajemen DOM Path**: Mencatat parameter `path` ke `instance._dom_path`.
   - **Evaluasi Berulang**: Memanggil `instance.render()` dan meneruskan hasilnya kembali ke metode `_expand_tree()` secara rekursif hingga tidak ada tag class komponen yang tersisa, murni menyisakan *Virtual DOM* berupa node HTML.
   - **Penanganan Error (Error Boundary)**: Memiliki mekanisme stack-unwinding `try/except`. Jika `component_did_catch` diterapkan pada komponen *parent*, error akan ditangkap melalui pelemparan eksepsi `ErrorCaughtByBoundary`.
 
 ### 3. Rendering Pertama ke Browser: `full_render`
-* **Lokasi**: `bridge/impl/pyodide_impl.py`
+* **Lokasi**: `bridge/impl/pyodide_impl.py` (dipanggil via `App.mount` di `core/app.py`)
 * **Deskripsi**: Merupakan titik keluar (exit point) dari Python menuju engine DOM di browser via objek Pyodide `js`.
 * **Proses Detail**:
   - Dipanggil dari dalam akhir fase `App.mount()` setelah menerima Virtual Tree yang 100% terekspansi.
   - Mencari elemen wadah di browser menggunakan `js.document.querySelector(selector)` lalu menghapus konten sebelumnya (`container.innerHTML = ""`).
-  - Memanggil metode rekursif internal `_build_dom_element()`.
+  - Memanggil metode rekursif internal `_build_dom_element()` untuk membangun DOM nyata.
+  - **Resolusi Mount**: Setelah elemen nyata disisipkan ke DOM browser, loop `App` menelusuri antrean `app.pending_mounts` dan memanggil `instance._invoke_on_mount()` untuk setiap komponen, memastikan siklus hidup berjalan secara aman ketika DOM sudah sepenuhnya eksis.
 
 ### 4. Perakitan Elemen DOM: `_build_dom_element` & `_apply_props`
 * **Lokasi**: `bridge/impl/pyodide_impl.py`
@@ -147,13 +159,18 @@ Fase ini terjadi saat aplikasi pertama kali dimuat di browser.
 
 Fase ini berlangsung terus-menerus mengikuti interaksi pengguna atau peristiwa internal di latar belakang.
 
-### 1. Inisiasi Pembaruan State: `Component.set_state`
-* **Lokasi**: `core/component.py`
-* **Deskripsi**: Fungsi publik yang diakses oleh developer saat merespon peristiwa tertentu (misalnya `on_click`).
+### 1. Inisiasi Pembaruan State & Batching: `Component.set_state`
+* **Lokasi**: `core/component.py` dan `core/app.py`
+* **Deskripsi**: Mekanisme reaktivitas yang telah berevolusi menggunakan antrean (*queue*) dan Microtask Javascript untuk *State Batching* demi performa maksimal.
 * **Proses Detail**:
-  - Melakukan *merge dictionary* properti lama di `self._state` dengan pembaharuan.
-  - Menggunakan bendera (flag) `_dirty` yang disetel menjadi `True` selama operasi sinkron berjalan untuk mencegah siklus rekursi tak berujung dan melakukan proses "batching".
-  - Memanggil `self._schedule_update()` yang langsung mengarah ke `App._update_from_key(key)`.
+  - Saat `set_state(updates)` dipanggil (misal dari `on_click`), fungsi tidak langsung me-render ulang antarmuka. Ia membungkus pembaruan state dalam sebuah *closure* dan memasukannya ke antrean internal komponen `self._updates`.
+  - Jika komponen belum ditandai kotor, bendera `_dirty` disetel menjadi `True`.
+  - Komponen mendaftarkan dirinya ke App dengan memanggil `self._enqueue_dirty()` (yang mengarah ke `App.schedule_flush(comp)`).
+  - Di dalam `App`, komponen diregistrasi ke dalam antrean global `App.dirty_components`.
+  - `App` menggunakan fasilitas antrean antarmuka Javascript (Microtask API via `pyodide.ffi` atau fallback `setTimeout`) untuk menunda eksekusi proses render hingga seluruh penanganan event sinkron saat ini selesai.
+  - Saat Event Loop browser longgar, Microtask `App._run_flush` tereksekusi.
+  - `App.flush_updates()` mencabut satu-per-satu komponen dari `dirty_components` dan mengeksekusi `comp.execute_update()`.
+  - `execute_update()` lalu mengekstrak seluruh *closure* di `_updates` dan memutakhirkan `_state` secara beruntun. Baru setelah itu, fungsi ini mereset `_dirty = False` dan memicu proses *re-render* yang sesungguhnya dengan memanggil `self._schedule_update()`.
 
 ### 2. Membangun VNode Baru: `App._update_from_key`
 * **Lokasi**: `core/app.py`
