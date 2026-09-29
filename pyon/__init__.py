@@ -3,10 +3,10 @@ PyOn Framework
 """
 from .core.app import App
 from .core.bus import EventEmitter
-from .core.component import BaseProps, Component
+from .core.component import BaseEvents, BaseProps, BaseState, Component
 from .core.vnode import VNode, h
 from .router import Router
 from .store import Store
 
-__all__ = ["App", "BaseProps", "Component", "EventEmitter", "Router", "Store", "VNode", "h"]
+__all__ = ["App", "BaseEvents", "BaseProps", "BaseState", "Component", "EventEmitter", "Router", "Store", "VNode", "h"]
 __version__ = "0.1.1"

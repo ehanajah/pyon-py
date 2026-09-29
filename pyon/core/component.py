@@ -85,7 +85,7 @@ BaseEvents: TypeAlias = dict[str, Callable]
 PropsT = TypeVar("PropsT", bound=Mapping[str, Any], default=BaseProps)
 StateT = TypeVar("StateT", bound=Mapping[str, Any], default=BaseState)
 
-EventsT = TypeVar("EventsT", bound=Mapping[str, Callable], default=BaseEvents)
+EventsT = TypeVar("EventsT", bound=Mapping[str, Any], default=BaseEvents)
 
 
 class Component(Generic[PropsT, StateT, EventsT]):
