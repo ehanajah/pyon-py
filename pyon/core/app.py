@@ -363,51 +363,6 @@ def _expand_tree(
     )
 
 
-def _find_path_by_key(
-    tree: VNode,
-    target_key: str,
-    current_path: str = "0",
-) -> str | None:
-    """Finds the DOM path of a VNode that has a specific component_key.
-
-    Traverses the expanded VNode tree recursively (DFS) to find the VNode
-    whose ``component_key`` matches the ``target_key``.
-
-    Since the expanded tree only contains HTML string tags, component_key is stored
-    when ``_expand_tree()`` renders the component. Alternatively, it can also
-    lookup directly from ``component_map[key]._dom_path`` — this function is
-    available as a traversal fallback.
-
-    Called by:
-        - ``_sync_dom_paths()`` — to synchronize the ``_dom_path`` of all
-          instances after the tree changes.
-
-    Args:
-        tree: The root VNode of the expanded tree to be traversed.
-        target_key: The hierarchical full key of the searched component.
-            Example: ``"TodoApp.error-boundary.todo-item-1"``.
-        current_path: The current DOM path in the traversal.
-            Defaults to ``"0"`` (root). Incremented as it goes down levels,
-            e.g., ``"0.1.3"``.
-
-    Returns:
-        The DOM path string if found (e.g., ``"0.2.1"``), or ``None`` if not
-        found in the tree.
-    """
-    # Check if this node has a matching component_key.
-    if getattr(tree, "component_key", None) == target_key:
-        return current_path
-
-    # Recursively traverse children (depth-first search).
-    for i, child in enumerate(tree.children):
-        if isinstance(child, VNode):
-            result = _find_path_by_key(child, target_key, f"{current_path}.{i}")
-            if result is not None:
-                return result
-
-    return None
-
-
 def _collect_keys_in_tree(node: VNode, result: set) -> None:
     """Collects all component_keys from an expanded VNode tree.
 
@@ -532,37 +487,74 @@ def _set_vnode_by_path(tree: VNode, path: str, new_node: VNode) -> None:
 def _sync_dom_paths(
     tree: VNode,
     component_map: dict[str, Component],
-    current_path: str = "0",
+    current_path: str,
+    parent_key: str | None = None,
 ) -> None:
     """Synchronizes the ``_dom_path`` of all component instances after the tree changes.
 
-    After ``current_tree`` is updated (e.g., via ``_set_vnode_by_path``),
-    the DOM position of components might change (children reordered/removed).
-    This function updates the ``_dom_path`` of each instance in ``component_map``
-    to match its new position in the tree.
+    After ``current_tree`` is updated, the DOM position of components might change 
+    (children reordered/removed). This function updates the ``_dom_path`` of each 
+    instance in ``component_map`` to match its new position in the tree so that 
+    the next update targets the correct DOM node.
 
-    This is crucial to ensure that the next ``_update_from_key()`` targets
-    the correct DOM path.
+    Optimization:
+        Instead of running a full DFS search for each component in ``component_map`` 
+        (which would be O(K_total * N_total)), this function utilizes a single-pass 
+        tree walk (via ``_collect_key_paths``) over the updated branch (O(N_subtree)). 
+        It then filters the map and applies changes only to descendants of ``parent_key``. 
+        This reduces the complexity, making incremental updates incredibly fast.
 
     Called by:
         - ``App._update_from_key()`` — at the end of the update cycle, after
           patching and subtree replacement.
 
     Args:
-        tree: The root VNode of the updated expanded tree.
+        tree: The root VNode of the updated expanded branch.
         component_map: Dictionary of full_key → Component instance.
-            Each instance will have its ``_dom_path`` updated.
-        current_path: The initial DOM path for traversal (defaults to ``"0"``).
-            This parameter exists for signature consistency but is not
-            directly used — search is done via ``_find_path_by_key()``.
+        current_path: The absolute DOM path of the root of the updated branch.
+            This anchors the traversal so that all paths generated for descendants 
+            are absolute DOM paths.
+        parent_key: The hierarchical key of the component that triggered the update.
+            Used to filter which instances in the map should be updated.
     """
 
-    # Iterate all instances in component_map and find their new positions
-    # in the tree using _find_path_by_key().
+    key_path_map: dict[str, str] = {}
+    _collect_key_paths(tree, current_path, key_path_map)
+
+    # Iterate through component_map and map the new paths in O(K) time,
+    # skipping nodes that are not descendants of the updated component.
     for key, instance in component_map.items():
-        new_path = _find_path_by_key(tree, key)
+        if parent_key and not key.startswith(parent_key + "."):
+            continue
+        new_path = key_path_map.get(key)
         if new_path is not None:
             instance._dom_path = new_path
+
+
+def _collect_key_paths(
+    node: VNode,
+    current_path: str,
+    result: dict[str, str]
+) -> None:
+    """Traverses a VNode tree and collects the absolute DOM path for every component.
+
+    Performs a single-pass depth-first search (DFS) through the VNode tree,
+    recording the current DOM path whenever it encounters a node tagged with a
+    ``component_key``. 
+
+    This is an internal helper for ``_sync_dom_paths()`` that enables the 
+    O(N_subtree) synchronization optimization.
+
+    Args:
+        node: The current VNode being evaluated.
+        current_path: The absolute DOM path of the current node (e.g., ``"0.1.2"``).
+        result: The dictionary being populated with ``component_key → DOM path`` mappings.
+    """
+    if node.component_key is not None:
+        result[node.component_key] = current_path
+    for i, child in enumerate(node.children):
+        if isinstance(child, VNode):
+            _collect_key_paths(child, f"{current_path}.{i}", result)
 
 
 @final
@@ -802,7 +794,12 @@ class App:
         # ── Synchronize _dom_path of all instances ───────────────────────
         # After the tree changes, the DOM position of components might shift.
         # Ensure all instances have an up-to-date _dom_path.
-        _sync_dom_paths(self.current_tree, self.component_map)
+        _sync_dom_paths(
+            new_branch, 
+            self.component_map, 
+            path, 
+            key
+        )
         
         while self.pending_mounts:
             instance = self.pending_mounts.popleft()
