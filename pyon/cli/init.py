@@ -38,6 +38,10 @@ outdir = "dist"
 bytecode = true
 include_pyodide = false
 
+# Optional: Load environment variables from a file
+# [build.env]
+# file = ".env"
+
 """
     create_file(cwd / "pyon.toml", pyon_toml)
 
