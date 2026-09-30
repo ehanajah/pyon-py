@@ -258,11 +258,7 @@ def render_element(node: ElementNode, instance: Any, local_scope: dict) -> VNode
 
         if len(real) == 1 and isinstance(real[0], VNode):
             return real[0]
-        raise TemplateError(
-            f"Template error: Fragment must contain exactly one VNode, "
-            f"got {len(real)} VNodes at '{type(instance).__name__}.render()'. "
-            f"Wrap all elements in a single root element (e.g. <div></div>) "
-        )
+        return VNode(tag="pyon-fragment", props={}, children=real)
     
     # If tag is capitalized, it might be a component class. Resolve it via eval
     if tag[0].isupper():

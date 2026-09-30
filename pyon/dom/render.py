@@ -46,6 +46,12 @@ def _build_dom_element(
 ) -> "DOMElement":
     owner = path_owner_map.get(current_path)
     el: DOMElement = js.document.createElement(str(node.tag))
+
+    # Fragment: hide wrapper visually
+    if node.tag == "pyon-fragment":
+        el.style.display = "contents"
+        el.setAttribute("data-pyon-fragment", "")
+
     _apply_props(el, node.props, flush_callback=flush_callback, owner=owner, node=node)
     for i, child in enumerate(node.children):
         child_path = f"{current_path}.{i}"
@@ -64,6 +70,13 @@ def full_render(
     container = js.document.querySelector(selector)
     if container is None:
         raise RuntimeError(f"'{selector}' selector not found in DOM")
+
+    # Inject fragment CSS rule once
+    if not hasattr(js.window, "__pyon_fragment_css"):
+        style = js.document.createElement("style")
+        style.textContent = "pyon-fragment { display: contents; }"
+        js.document.head.appendChild(style)
+        js.window.__pyon_fragment_css = True # type: ignore
     
     path_owner_map = (
         build_path_owner_map(tree, component_map)

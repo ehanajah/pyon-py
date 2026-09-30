@@ -85,14 +85,19 @@ def _check_sibling_keys(children: Children):
 
 
 def _apply_css_scope(node: VNode, scope_id: str) -> None:
-    node.props[f"data-{scope_id}"] = ""
-
-    for child in node.children:
-        if isinstance(child, VNode):
-            if isinstance(child.tag, str):
+    if node.tag == "pyon-fragment":
+        for child in node.children:
+            if isinstance(child, VNode):
                 _apply_css_scope(child, scope_id)
-            else:
-                child.props[f"data-{scope_id}"] = ""
+    else:
+        node.props[f"data-{scope_id}"] = ""
+
+        for child in node.children:
+            if isinstance(child, VNode):
+                if isinstance(child.tag, str):
+                    _apply_css_scope(child, scope_id)
+                else:
+                    child.props[f"data-{scope_id}"] = ""
 
 def _expand_tree(
     node: VNode,

@@ -1,5 +1,7 @@
 # Fragment Return Support — Design Spec
 
+> **Status**: Implemented
+
 ## 1. Masalah
 
 Saat ini, `render()` **harus** mengembalikan tepat satu VNode root. Jika template memiliki banyak elemen root, `template.py` melempar `TemplateError`:

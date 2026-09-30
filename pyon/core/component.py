@@ -316,7 +316,7 @@ class Component(Generic[PropsT, StateT, EventsT]):
         # re-render -> diff -> DOM patch.
         self._schedule_update()
 
-    def render(self) -> VNode | str:
+    def render(self) -> VNode | str | list[VNode | str]:
         """Returns a VNode tree or HTML template string representing the component's UI.
 
         This method **must be overridden** by every subclass. It is called
@@ -335,6 +335,9 @@ class Component(Generic[PropsT, StateT, EventsT]):
     def _render(self) -> VNode:
         """Internal render wrapper that handles string templates."""
         raw_result = self.render()
+        if isinstance(raw_result, list):
+            from pyon.core.vnode import h
+            return h("pyon-fragment", {}, raw_result)
         if isinstance(raw_result, str):
             cls = type(self)
             if cls.__dict__.get("_ast_cache") is None:
@@ -348,7 +351,7 @@ class Component(Generic[PropsT, StateT, EventsT]):
             vnode_dict_or_list = render_element(cls._ast_cache, self, {})
             if isinstance(vnode_dict_or_list, list):
                 from pyon.core.vnode import h
-                return h("#fragment", {}, vnode_dict_or_list) # Or standard wrapper
+                return h("pyon-fragment", {}, vnode_dict_or_list) # Or standard wrapper
             return vnode_dict_or_list
         return raw_result
 
