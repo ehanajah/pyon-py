@@ -335,7 +335,7 @@ def _expand_tree(
                 raise ErrorCaughtByBoundary(boundary_key, e)
             else:
                 # No boundary — throw the original error (unhandled).
-                raise e
+                raise
 
     _check_sibling_keys(node.children)
 
