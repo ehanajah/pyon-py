@@ -316,7 +316,7 @@ class Component(Generic[PropsT, StateT, EventsT]):
         # re-render -> diff -> DOM patch.
         self._schedule_update()
 
-    def render(self) -> VNode | str | list[VNode | str]:
+    def render(self) -> VNode | str | list[VNode]:
         """Returns a VNode tree or HTML template string representing the component's UI.
 
         This method **must be overridden** by every subclass. It is called

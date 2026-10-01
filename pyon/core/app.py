@@ -19,6 +19,9 @@ import sys
 from collections import deque
 from typing import Any, cast, final
 
+from pyon.core.lazy import SuspensePending
+from pyon.core.suspense import Suspense, SuspenseCaughtByBoundary
+
 from .component import Component
 from .utils import current_component, dispatch
 from .vnode import Children, VNode
@@ -82,6 +85,23 @@ def _check_sibling_keys(children: Children):
             f"Add explicit unique 'key' props to the components."
             f"Example: h('TodoItem', {{\"key\": \"todo-item-1\"}})"
         )
+
+
+def _preload_lazy_descendants(node: VNode) -> None:
+    """
+    Scans the VNode tree and triggers _start_loading() for all
+    lazy components found without instantiating them.
+
+    Purpose: Reduces the waterfall effect when multiple lazy
+    components are nested under a single Suspense boundary.
+    """
+    if (isinstance(node.tag, type) and hasattr(node.tag, "_resolved")):  # noqa: SIM102
+        if node.tag._resolved is None and not node.tag._loading:
+            node.tag._start_loading()
+
+    for child in node.children:
+        if isinstance(child, VNode):
+            _preload_lazy_descendants(child)
 
 
 def _apply_css_scope(node: VNode, scope_id: str) -> None:
@@ -193,6 +213,7 @@ def _expand_tree(
             props = node.props.copy()
 
         instance: Component | None = None
+        child_vnode: VNode | None = None
         try:
             # ── Reuse or create new instance based on key existence ──
             if full_key in component_map:
@@ -265,7 +286,7 @@ def _expand_tree(
 
             finally:
                 current_component.reset(token)
-                
+
             expanded = _expand_tree(child_vnode, path, full_key, component_map, app, _seen_keys)
 
             # Mark the expanded VNode with the component's full_key.
@@ -306,7 +327,61 @@ def _expand_tree(
                 # Not our boundary — propagate upwards (stack unwinding).
                 raise
 
-        except Exception as e:
+        except SuspenseCaughtByBoundary as e_suspense:
+            if instance and full_key == e_suspense.boundary_key:
+                # Register lazy class to Suspense instance
+                suspense_instance = cast(Suspense, instance)
+                suspense_instance._register_pending(e_suspense.lazy_class)
+
+                # Pre-trigger loading for lazy sibling components
+                if child_vnode:
+                    _preload_lazy_descendants(child_vnode)
+
+                # Render fallback UI
+                fallback_vnode = suspense_instance._get_fallback_vnode()
+                if isinstance(fallback_vnode, list):
+                    fallback_vnode = VNode("pyon-fragment", {}, fallback_vnode)
+                expanded = _expand_tree(
+                    fallback_vnode, path, full_key,
+                    component_map, app, _seen_keys
+                )
+                expanded.component_key = full_key
+                expanded.key = node.key
+                return expanded
+
+        except SuspensePending as e:
+            # ── Suspense Boundary Traversal ──────────────────────────────────
+            # Caught when lazy component throws SuspensePending exception.
+            # Traverse the parent chain (via hierarchical key) to find the nearest
+            # Suspense boundary component.
+            suspense_key = None
+            curr_key = parent_key
+            while curr_key:
+                parent_instance = component_map.get(curr_key)
+                if (
+                    parent_instance and 
+                    getattr(parent_instance, "_is_suspense_boundary", False)
+                ):
+                    suspense_key = curr_key
+                    break
+                if "." in curr_key:
+                    curr_key = curr_key.rsplit(".", 1)[0]
+                else:
+                    curr_key = ""
+            
+            if suspense_key:
+                # If boundary Suspense found, wrap the error with SuspenseCaughtByBoundary
+                # to be caught by the Suspense boundary catch block.
+                raise SuspenseCaughtByBoundary(suspense_key, e.lazy_class)
+            else:
+                # No boundary — stop the application because lazy component
+                # is not wrapped in a Suspense boundary.
+                raise RuntimeError(
+                    "Lazy component needs to be wrapped in a Suspense boundary."
+                    "Wrap with: <Suspense fallback='...'>...</Suspense>"
+                )
+
+        except Exception as e:                
             # ── Error Boundary Traversal ─────────────────────────────────
             # Standard exception from child render(). Find the nearest boundary
             # in the parent chain by traversing the hierarchical key upwards.
@@ -338,9 +413,8 @@ def _expand_tree(
                 # This exception will be caught by the ErrorCaughtByBoundary
                 # except block at the appropriate recursion level.
                 raise ErrorCaughtByBoundary(boundary_key, e)
-            else:
-                # No boundary — throw the original error (unhandled).
-                raise
+            # No boundary — throw the original error (unhandled).
+            raise
 
     _check_sibling_keys(node.children)
 

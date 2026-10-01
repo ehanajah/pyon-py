@@ -1,4 +1,11 @@
-from .app import App, ErrorCaughtByBoundary, _expand_tree, create_app, teardown
+from .app import (
+    App,
+    ErrorCaughtByBoundary,
+    _expand_tree,
+    create_app,
+    snapshot_for_hot_reload,
+    teardown,
+)
 from .bus import EventEmitter
 from .component import BaseProps, Component
 from .css import CSSManager
@@ -13,6 +20,8 @@ from .differ import (
 )
 from .dom import DOMElement, DOMTextNode, Node
 from .events import Event
+from .lazy import lazy
+from .suspense import Suspense
 from .utils import current_component, dispatch
 from .vnode import Props, VNode, h
 
@@ -33,6 +42,7 @@ __all__ = [
     "ReorderChildrenPatch",
     "ReplacePatch",
     "SetTextPatch",
+    "Suspense",
     "UpdatePropsPatch",
     "VNode",
     "_expand_tree",
@@ -41,5 +51,7 @@ __all__ = [
     "diff",
     "dispatch",
     "h",
+    "lazy",
+    "snapshot_for_hot_reload",
     "teardown",
 ]
