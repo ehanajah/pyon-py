@@ -119,10 +119,14 @@ class Component(Generic[PropsT, StateT, EventsT]):
             methods) created when ``_apply_props()`` in the bridge binds Python
             event handlers. Stored here to prevent them from being GC'ed by
             the browser or runtime. Executed and cleared in ``on_unmount()``.
-        _dom_path: Current DOM path (e.g., ``"body>div:0>ul:0>li:2"``).
+        _dom_path: Current DOM path (e.g., ``"0.1.0"``).
             Set by ``_expand_tree()`` in ``core/app.py`` and used
             by ``build_path_owner_map()`` in ``pyodide_impl.py`` to
             determine which component owns a specific DOM node.
+        _vnode: Reference to the expanded VNode in the ``current_tree``.
+            Set by ``_expand_tree()`` and used by ``_update_from_key()``
+            for O(1) subtree retrieval. Broken during ``on_unmount()`` to
+            resolve circular reference.
         _schedule_update: Callback to schedule a re-render.
             Bound to ``App._update_from_key(key)`` by ``_expand_tree()``
             in ``core/app.py`` using ``functools.partial``.
@@ -147,6 +151,7 @@ class Component(Generic[PropsT, StateT, EventsT]):
     _updates: deque[Callable[[], None]]  # stores pending update callbacks (e.g., set_state closures)
     _cleanups: list[Callable[[], None]]  # stores generic cleanup callbacks (e.g. proxy.destroy)
     _dom_path: str  # current DOM path — set by _expand_tree, used by build_path_owner_map
+    _vnode: VNode | None  # current VNode — set by _expand_tree
     _mounted = False
     _schedule_update: Callable[[], None]
     _enqueue_dirty: Callable[[], None]
@@ -194,6 +199,7 @@ class Component(Generic[PropsT, StateT, EventsT]):
         self._updates = deque()
         self._cleanups = []
         self._dom_path = ""
+        self._vnode = None
         self._mounted = False  # flag to track if on_mount has been called
         # No-op placeholder; will be overwritten by _expand_tree() in core/app.py
         # with functools.partial(app._update_from_key, component_key, prev_props, prev_state).
@@ -433,6 +439,7 @@ class Component(Generic[PropsT, StateT, EventsT]):
 
         result = self.on_unmount()
         self._mounted = False
+        self._vnode = None
 
         for cleanup in self._store_cleanups:
             cleanup()

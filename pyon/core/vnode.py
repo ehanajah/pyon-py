@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, TypeAlias, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeAlias, Union
 
 from .events import EventHandler
 from .utils import current_component
@@ -71,8 +71,11 @@ class VNode:
         component_key: Full hierarchical key set by ``_expand_tree()`` in
             ``core/app.py``. Format: ``"ParentKey.local_key"``
             (e.g., ``"TodoApp.todo-item-1"``). Used by:
-            - ``_find_path_by_key()`` for DOM path synchronization.
+            - ``_collect_key_paths()`` for DOM path synchronization.
             - ``_collect_keys_in_tree()`` for orphan component detection.
+        _owner: Internal reference to the Component instance that created
+            this VNode. Used as the inverse of Component._vnode for circular
+            reference tracking.
 
     Example:
         >>> node = VNode(

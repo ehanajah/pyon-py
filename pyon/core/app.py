@@ -274,6 +274,7 @@ def _expand_tree(
             # For example: component at path "0.1" → render() produces <div>
             # → that <div> remains at path "0.1".
             token = current_component.set(instance)
+            
             try:
                 child_vnode = instance._render()
 
@@ -286,13 +287,14 @@ def _expand_tree(
 
             finally:
                 current_component.reset(token)
-
+            
             expanded = _expand_tree(child_vnode, path, full_key, component_map, app, _seen_keys)
 
             # Mark the expanded VNode with the component's full_key.
-            # Used by _find_path_by_key() and _collect_keys_in_tree().
+            # Used by _collect_key_paths() and _collect_keys_in_tree().
             expanded.component_key = full_key
             expanded.key = node.key
+            instance._vnode = expanded
             return expanded
 
         except ErrorCaughtByBoundary as e_boundary:
@@ -322,6 +324,7 @@ def _expand_tree(
                 expanded = _expand_tree(child_vnode, path, full_key, component_map, app, _seen_keys)
                 expanded.component_key = full_key
                 expanded.key = node.key
+                instance._vnode = expanded
                 return expanded
             else:
                 # Not our boundary — propagate upwards (stack unwinding).
@@ -347,6 +350,7 @@ def _expand_tree(
                 )
                 expanded.component_key = full_key
                 expanded.key = node.key
+                instance._vnode = expanded
                 return expanded
 
         except SuspensePending as e:
@@ -472,43 +476,6 @@ def _collect_keys_in_tree(node: VNode, result: set) -> None:
             _collect_keys_in_tree(child, result)
 
 
-def _get_vnode_by_path(tree: VNode, path: str) -> VNode:
-    """Navigates to the VNode at a specific path in the expanded tree.
-
-    The path uses a dot-separated index format: ``"0"`` for root,
-    ``"0.1.3"`` for the 3rd child of the 1st child of the root. The first
-    part (``"0"``) is always the root and is skipped during navigation.
-
-    Called by:
-        - ``App._update_from_key()`` — to get the old subtree
-          (old branch) to be diffed with the new subtree.
-
-    Args:
-        tree: The root VNode of the expanded tree.
-        path: The target DOM path in a dot-separated index format.
-            Example: ``"0"`` (root), ``"0.2.1"`` (1st child of the 2nd
-            child of the root).
-
-    Returns:
-        The VNode located at the requested path.
-
-    Raises:
-        TypeError: If a child along the traversed path is not a VNode
-            (e.g., a text string).
-        IndexError: If an index in the path exceeds the number of children.
-    """
-    parts = path.split(".")
-    node = tree
-
-    # Skip the first part ("0" = root) since the tree is already the root.
-    for part in parts[1:]:
-        idx = int(part)
-        child = node.children[idx]
-        if not isinstance(child, VNode):
-            raise TypeError(f"Expected VNode, got {type(child)}")
-        node = child
-
-    return node
 
 
 def _set_vnode_by_path(tree: VNode, path: str, new_node: VNode) -> None:
@@ -832,7 +799,11 @@ class App:
         orphan_keys = keys_before - keys_in_new
 
         # ── Diff old branch vs new branch ────────────────────────────────
-        old_branch = _get_vnode_by_path(self.current_tree, path)
+        
+        old_branch = instance._vnode
+
+        if not old_branch:
+            raise ValueError(f"VNode not found at path {path}")
 
         # Bug Fix: Pastikan new_branch mempertahankan identitas (key & component_key)
         # dari VNode sebelumnya. Jika hilang, differ akan menganggap ini elemen baru
@@ -869,6 +840,9 @@ class App:
         else:
             # Non-root — replace the subtree at the specific path (in-place mutation).
             _set_vnode_by_path(self.current_tree, path, new_branch)
+
+        # Update the instance's _vnode property with the new branch.
+        instance._vnode = new_branch
 
         # ── Synchronize _dom_path of all instances ───────────────────────
         # After the tree changes, the DOM position of components might shift.
