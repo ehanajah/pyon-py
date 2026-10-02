@@ -355,12 +355,8 @@ def diff(
 
     # ── Case 5: props changed ───────────────────────────────────────────
     prop_changes = _diff_props(old.props, new.props)
-    # Filter out event handlers (callables) because Python callables cannot
-    # be reliably compared using ==. Event handlers are always rebound
-    # when the element is rebuilt via _build_dom_element().
-    filtered: Props = {k: v for k, v in prop_changes.items() if not callable(v)}
-    if filtered:
-        patches.append(UpdatePropsPatch(op="UPDATE_PROPS", path=path, props=filtered))
+    if prop_changes:
+        patches.append(UpdatePropsPatch(op="UPDATE_PROPS", path=path, props=prop_changes))
 
     # ── Case 6: text content changed (single primitive child) ─────────────
     old_is_text = len(old.children) == 1 and _is_text(old.children[0])

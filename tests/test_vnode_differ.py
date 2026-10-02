@@ -139,16 +139,15 @@ class TestDiffProps:
         patches = diff(old, new)
         assert not any(p["op"] == "UPDATE_PROPS" for p in patches)
 
-    def test_event_handler_ignored_from_props_diff(self):
-        """Callable (event handler) cannot be included in UPDATE_PROPS patch."""
+    def test_event_handler_included_in_props_diff(self):
+        """Callable (event handler) must be included in UPDATE_PROPS patch to update Invoker."""
         handler = lambda e: None  # noqa: E731
         old = h("button", {"onClick": handler})
         new = h("button", {"onClick": lambda e: None})  # instance different
         patches = diff(old, new)
         prop_patch = next((p for p in patches if p["op"] == "UPDATE_PROPS"), None)
-        # May not have patch, or contain "onClick" but not the handler
-        if prop_patch:
-            assert "onClick" not in prop_patch["props"]
+        assert prop_patch is not None
+        assert "onClick" in prop_patch["props"]
 
 
 # =============================================================================

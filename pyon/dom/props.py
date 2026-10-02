@@ -14,6 +14,15 @@ _BOOLEAN_ATTRS = {
     "hidden", "loop", "novalidate", "open", "selected",
 }
 
+class EventInvoker:
+    value: Callable
+    def __init__(self, value: Callable):
+        self.value = value
+
+    def __call__(self, *args: Any, **kwargs: Any) -> None:
+        return self.value(*args, **kwargs)
+    
+
 def _apply_props(
         el: "DOMElement", 
         props: "Props", 
@@ -41,6 +50,7 @@ def _apply_props(
             el.setAttribute(key, str(val))
         elif key.startswith("on_") and callable(val):
             event_name = key[3:]
+
             if owner is not None:
                 def make_handler(handler: Callable) -> Callable:
                     def exec_handler(*args: Any, **kwargs: Any) -> None:
@@ -49,9 +59,18 @@ def _apply_props(
                         flush_callback()
                     return exec_handler
                 
-                proxy = ffi.create_proxy(make_handler(val))
-                owner._cleanups.append(proxy.destroy) # type: ignore
-                el.addEventListener(event_name, proxy)
+                invoker_prop = f"_pyon_vei_{event_name}"
+                existing_invoker: EventInvoker | None = getattr(el, invoker_prop, None)
+
+                if existing_invoker is not None:
+                    existing_invoker.value = make_handler(val)
+                else:
+                    invoker = EventInvoker(make_handler(val))
+                    setattr(el, invoker_prop, invoker)
+                
+                    proxy = ffi.create_proxy(invoker)
+                    owner._cleanups.append(proxy.destroy) # type: ignore
+                    el.addEventListener(event_name, proxy)
             else:
                 proxy = ffi.create_proxy(val)
                 el.addEventListener(event_name, proxy)
