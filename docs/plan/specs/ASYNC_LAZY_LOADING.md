@@ -639,3 +639,407 @@ if tag[0].isupper():
 | Multiple pending | Concurrent mode tracks promises | Sequential + `_preload_lazy_descendants()` parallel trigger |
 | CSS | CSS-in-JS / external | Scoped CSS re-injection via `CSSManager` |
 | SSR | Streamable Suspense | N/A (client-only Pyodide) |
+
+---
+
+## 10. Strategi Optimasi Lanjutan
+
+Bagian ini mendokumentasikan empat strategi optimasi lanjutan yang dapat diimplementasikan untuk memaksimalkan manfaat dari fitur `lazy()` dan `Suspense`.
+
+### 10.1 Router Pre-fetching (Hover-based)
+
+**Masalah**: Saat ini, modul lazy baru mulai di-load ketika VDOM mencoba merendernya (saat navigasi terjadi). Ini berarti pengguna selalu melihat fallback, meskipun hanya sebentar.
+
+**Solusi**: Mulai loading modul saat pengguna mengarahkan kursor (hover) ke tautan navigasi — **sebelum** tautan diklik. Dengan jeda alami antara hover dan klik (~300–500ms), modul kemungkinan besar sudah ter-resolve saat navigasi terjadi sehingga transisi terasa instan.
+
+**Rancangan API:**
+
+```python
+# Di komponen Link bawaan Router
+class Link(Component):
+    def _on_mouse_enter(self, e):
+        # Resolve route target dari href
+        target_route = self._router.resolve(self.props["href"])
+        comp = target_route.get("component")
+        
+        # Jika komponen target adalah lazy dan belum dimuat,
+        # picu loading di latar belakang
+        if comp and hasattr(comp, "_start_loading"):
+            comp._start_loading()
+
+    def render(self):
+        return """
+        <a href="{{ self.props['href'] }}"
+           on_mouseenter="{{ self._on_mouse_enter }}"
+           on_click="{{ self._on_click }}">
+            {{ self.props.get('children') }}
+        </a>
+        """
+```
+
+**File terdampak:**
+
+| File | Perubahan |
+|---|---|
+| `pyon/router/components.py` | Tambah `_on_mouse_enter` handler di `Link` |
+| `pyon/router/core.py` | Tambah method `resolve(path) → RouteDef` di `Router` |
+
+**Diagram alur:**
+
+```
+User hover pada <Link href="/profile">
+  → Link._on_mouse_enter()
+  → router.resolve("/profile") → RouteDef{component: LazyProfile}
+  → LazyProfile._start_loading()  ← async fetch dimulai di background
+
+    ... ~400ms kemudian ...
+
+User klik <Link>
+  → router.push("/profile")
+  → RouterView re-render → _expand_tree(LazyProfile)
+  → LazyProfile._resolved sudah terisi → render langsung tanpa fallback!
+```
+
+### 10.2 Custom Import Finder — Network Code-Splitting (PEP 302)
+
+**Masalah**: Saat ini semua file Python di-bundle ke dalam satu arsip ZIP dan dimuat ke MEMFS Pyodide di awal. Keuntungan `lazy()` terbatas pada penundaan eksekusi modul (CPU time), bukan penghematan bandwidth jaringan.
+
+**Solusi**: Implementasikan `MetaPathFinder` kustom (PEP 302) yang mendaftarkan diri ke `sys.meta_path`. Saat `importlib.import_module()` gagal menemukan modul di memori, finder ini akan melakukan HTTP fetch untuk mengunduh file `.py` individual dari server.
+
+**Rancangan:**
+
+```python
+import sys
+from importlib.abc import MetaPathFinder, Loader
+from importlib.util import spec_from_loader
+
+class PyonNetworkLoader(Loader):
+    def __init__(self, source: str, fullname: str):
+        self._source = source
+        self._fullname = fullname
+    
+    def create_module(self, spec):
+        return None  # Gunakan default module creation
+    
+    def exec_module(self, module):
+        exec(compile(self._source, f"<lazy:{self._fullname}>", "exec"), module.__dict__)
+
+
+class PyonNetworkFinder(MetaPathFinder):
+    """
+    MetaPathFinder yang mengunduh modul Python via HTTP fetch
+    saat modul tidak ditemukan di filesystem virtual Pyodide.
+    """
+    BASE_URL = "/static/js/pyon_modules/"
+    
+    def find_spec(self, fullname, path, target=None):
+        # Hanya tangani modul dalam namespace aplikasi
+        if not fullname.startswith("pages.") and not fullname.startswith("components."):
+            return None
+        
+        # Konversi module path → URL
+        url = f"{self.BASE_URL}{fullname.replace('.', '/')}.py"
+        
+        try:
+            # Pyodide mendukung synchronous XMLHttpRequest untuk import
+            from pyodide.http import open_url  # type: ignore
+            source = open_url(url).read()
+        except Exception:
+            return None
+        
+        loader = PyonNetworkLoader(source, fullname)
+        return spec_from_loader(fullname, loader)
+
+# Registrasi saat aplikasi dimulai
+sys.meta_path.append(PyonNetworkFinder())
+```
+
+**Perubahan pada Build System:**
+
+| Aspek | Sebelum | Sesudah |
+|---|---|---|
+| Output build | Satu file `app.zip` | `core.zip` (kernel) + `chunks/*.py` (per-modul lazy) |
+| Startup load | Seluruh kode aplikasi | Hanya kernel + halaman awal |
+| Lazy import | `importlib.import_module` (dari MEMFS) | HTTP fetch → compile → exec |
+
+**File terdampak:**
+
+| File | Perubahan |
+|---|---|
+| `pyon/core/lazy.py` | Dukungan loader berbasis manifest (`_manifest_preloaded_loader`) |
+| `pyon/cli/build.py` | Tambah opsi `--code-split`, parser AST untuk membuat `manifest.json`, serta pemisahan chunk |
+| `pyon/dev_server/server.py` | Tambah route handler untuk melayani chunks individual dan `manifest.json` |
+| `pyon/runtime/finder.py` | **Baru** — `PyonNetworkFinder` (fallback import interceptor) |
+
+#### 10.2.1 Masalah Synchronous Waterfall & Solusi Dependency Manifest
+
+Jika modul lazy mengimpor modul lain menggunakan statement `import` standar (misal: `from components.avatar import Avatar` di dalam `pages/profile.py`), Python akan mengeksekusi import tersebut saat modul dieksekusi (`exec_module`).
+
+Karena `sys.meta_path` bersifat global dan rekursif, `PyonNetworkFinder` akan mencegat impor berantai tersebut dan berhasil mengunduhnya. Namun, jika pengunduhan di dalam `PyonNetworkFinder` mengandalkan XMLHttpRequest sinkron (`open_url`), ini akan menimbulkan **Synchronous Waterfall**:
+
+```
+Timeline Synchronous Waterfall (UI Membeku):
+
+[async]  fetch pages/profile.py ──────────────────── 200ms
+[sync]   compile profile.py ─────────────────────── 10ms
+[sync]   exec profile.py mulai...
+         ├─ [BLOCK] fetch components/avatar.py ──── 150ms  ← UI browser freeze!
+         ├─ [BLOCK] compile avatar.py ───────────── 5ms
+         ├─ [BLOCK] fetch components/badge.py ───── 150ms  ← UI browser freeze lagi!
+         └─ [BLOCK] compile badge.py ────────────── 5ms
+         Profile class siap ─────────────────────── 0ms
+                                            Total: ~520ms (UI freeze ~310ms)
+```
+
+**Solusi: Dependency Manifest & Parallel Pre-fetch**
+
+Untuk mencegah pemblokiran main thread pada impor berantai, build system (`pyon build --code-split`) menganalisis AST seluruh modul untuk memetakan dependensi statis ke dalam sebuah **Dependency Manifest** (`manifest.json`):
+
+```json
+// static/js/pyon_modules/manifest.json
+{
+  "pages.profile": {
+    "file": "pages/profile.py",
+    "deps": ["components.avatar", "components.badge"]
+  },
+  "components.avatar": {
+    "file": "components/avatar.py",
+    "deps": ["components.base"]
+  },
+  "components.badge": {
+    "file": "components/badge.py",
+    "deps": []
+  },
+  "components.base": {
+    "file": "components/base.py",
+    "deps": []
+  }
+}
+```
+
+**Alur Runtime Smart Loader (Async Pre-fetch ke MEMFS):**
+
+Sebelum memanggil `importlib.import_module()`, runtime loader membaca manifest dan mengunduh seluruh pohon dependensi secara paralel (asinkron dan non-blocking) langsung ke virtual filesystem (MEMFS) Pyodide:
+
+```python
+async def _manifest_preloaded_loader(module_path: str, class_name: str) -> type[Component]:
+    """
+    Loader yang memanfaatkan manifest untuk mengunduh seluruh dependency tree
+    secara paralel ke MEMFS sebelum modul dieksekusi oleh Python runtime.
+    """
+    manifest = await _load_manifest()
+    
+    # 1. Kumpulkan seluruh transitive dependency tree secara rekursif
+    all_modules = _collect_transitive_deps(module_path, manifest)
+    
+    # 2. Unduh semua file dependensi yang belum ada di MEMFS secara paralel
+    import asyncio
+    from pyodide.http import pyfetch  # type: ignore
+    
+    async def fetch_and_write(mod_name: str) -> None:
+        file_rel_path = manifest[mod_name]["file"]
+        # Lewati jika file sudah berada di MEMFS
+        if _exists_in_memfs(file_rel_path):
+            return
+        
+        resp = await pyfetch(f"/static/js/pyon_modules/{file_rel_path}")
+        code_str = await resp.string()
+        _write_to_memfs(file_rel_path, code_str)
+
+    await asyncio.gather(*[fetch_and_write(m) for m in all_modules])
+    
+    # 3. Sekarang impor modul target secara normal.
+    #    Seluruh statement 'import' berantai di dalamnya dijamin langsung hit MEMFS!
+    import importlib
+    mod = importlib.import_module(module_path)
+    return getattr(mod, class_name)
+```
+
+**Perbandingan Timeline (Dengan Manifest Pre-fetch):**
+
+```
+Timeline Parallel Pre-fetch (Non-blocking):
+
+[async]  fetch manifest.json ────────────────────── 30ms (hanya sekali/cached)
+[async]  fetch pages/profile.py    ─┐
+[async]  fetch components/avatar.py─┼── PARALEL ─── 200ms (non-blocking)
+[async]  fetch components/badge.py ─┤
+[async]  fetch components/base.py  ─┘
+[sync]   tulis semua ke MEMFS ──────────────────── 2ms
+[sync]   import profile (semua deps hit MEMFS) ─── 15ms   ← ZERO network freeze!
+                                           Total: ~247ms (UI freeze < 20ms)
+```
+
+Dengan pendekatan ini:
+1. `PyonNetworkFinder` tetap bertindak sebagai jaring pengaman (fallback) untuk impor dinamis tak terduga.
+2. Impor berantai reguler di-resolusi secara paralel dan non-blocking tanpa membekukan antarmuka browser.
+
+### 10.3 Intersection Observer — Lazy Load Berdasarkan Viewport
+
+**Masalah**: Komponen yang berada jauh di bawah halaman (di bawah *fold*) tetap dimuat saat halaman pertama kali di-render, meskipun pengguna belum men-scroll ke sana.
+
+**Solusi**: Buat komponen pembungkus `InView` yang menggunakan JavaScript `IntersectionObserver` API. Komponen ini hanya merender children-nya ketika elemen tersebut masuk ke area pandang (*viewport*) pengguna.
+
+**Rancangan API:**
+
+```python
+class InView(Component):
+    """
+    Komponen pembungkus yang menunda rendering children hingga
+    elemen masuk ke viewport pengguna.
+    
+    Props:
+        root_margin: str — margin observer (default: "200px", mulai load
+                     200px sebelum masuk viewport untuk transisi mulus).
+        placeholder: VNode | str — UI placeholder sebelum visible.
+        children: konten yang akan dirender saat visible.
+    """
+    
+    def setup(self):
+        self._state = {"is_visible": False}
+        self._observer = None
+    
+    def on_mount(self):
+        import js
+        from pyodide.ffi import create_proxy
+        
+        def on_intersect(entries, observer):
+            for entry in entries:
+                if entry.isIntersecting:
+                    self.set_state({"is_visible": True})
+                    observer.unobserve(entry.target)
+        
+        callback = create_proxy(on_intersect)
+        self._proxies.append(callback)
+        
+        options = js.Object.new()
+        options.rootMargin = self.props.get("root_margin", "200px")
+        
+        self._observer = js.IntersectionObserver.new(callback, options)
+        
+        # Observe elemen DOM milik komponen ini
+        el = js.document.querySelector(f"[data-inview-{self._dom_path}]")
+        if el:
+            self._observer.observe(el)
+    
+    def on_unmount(self):
+        if self._observer:
+            self._observer.disconnect()
+    
+    def render(self):
+        if self._state["is_visible"]:
+            children = self.props.get("children", [])
+            return h("div", {f"data-inview-{self._dom_path}": ""}, children)
+        
+        placeholder = self.props.get("placeholder", h("div", {"style": {"min-height": "100px"}}, []))
+        return h("div", {f"data-inview-{self._dom_path}": ""}, [placeholder])
+```
+
+**Contoh Penggunaan:**
+
+```html
+<!-- Bagian komentar yang berat baru dimuat saat user scroll ke bawah -->
+<InView root_margin="300px" placeholder="<div class='skeleton-comments'></div>">
+    <Suspense fallback="<Spinner />">
+        <LazyCommentsSection post_id="{{ self.props['post_id'] }}" />
+    </Suspense>
+</InView>
+```
+
+**Alur:**
+
+```
+Halaman di-render
+  → <InView> mount → is_visible = False → render placeholder
+  → IntersectionObserver terdaftar dengan rootMargin 300px
+
+User scroll ke bawah mendekati area InView
+  → Observer callback: isIntersecting = True
+  → set_state({"is_visible": True})
+  → re-render → children di-render → <Suspense> aktif
+  → <LazyCommentsSection> mulai loading → fallback ditampilkan
+  → Modul selesai dimuat → konten komentar ditampilkan
+```
+
+**File terdampak:**
+
+| File | Perubahan |
+|---|---|
+| `pyon/core/inview.py` | **Baru** — komponen `InView` |
+| `pyon/core/__init__.py` | Export `InView` |
+
+### 10.4 Isolasi Pustaka Berat (Heavy Library Chunking)
+
+**Masalah**: Pustaka pihak ketiga yang besar (misalnya `matplotlib`, `numpy`, pustaka Markdown parser) memiliki waktu kompilasi dan inisialisasi yang sangat lama di Pyodide. Meng-import-nya secara global di `__init__.py` atau di level modul akan menghambat seluruh startup aplikasi.
+
+**Solusi**: Gunakan `lazy()` untuk mengisolasi komponen-komponen yang bergantung pada pustaka berat. Pastikan `import` pustaka tersebut hanya terjadi di dalam file modul komponen lazy, bukan di modul yang dieksekusi saat startup.
+
+**Pola yang SALAH (memblokir startup):**
+
+```python
+# app.py — JANGAN lakukan ini
+from pages.dashboard import Dashboard  # ← import numpy terjadi di sini
+from pages.chart import ChartView      # ← import matplotlib terjadi di sini
+
+class App(Component):
+    def render(self):
+        return """
+        <Dashboard />
+        <ChartView />
+        """
+```
+
+**Pola yang BENAR (lazy isolation):**
+
+```python
+# app.py — import berat ditunda
+from pyon.core import lazy
+
+LazyDashboard = lazy("pages.dashboard", "Dashboard")
+LazyChartView = lazy("pages.chart", "ChartView")
+
+class App(Component):
+    def render(self):
+        return """
+        <Suspense fallback="<SkeletonDashboard />">
+            <LazyDashboard />
+        </Suspense>
+        <Suspense fallback="<SkeletonChart />">
+            <LazyChartView />
+        </Suspense>
+        """
+```
+
+```python
+# pages/dashboard.py — import berat HANYA terjadi saat file ini di-load
+import numpy as np  # ← aman: hanya dieksekusi saat lazy resolve
+
+class Dashboard(Component):
+    def setup(self):
+        self._state = {"data": np.zeros(100).tolist()}
+    
+    def render(self):
+        return """<div class="dashboard">...</div>"""
+```
+
+**Dampak terhadap TTI (Time-to-Interactive):**
+
+```
+Tanpa lazy isolation:
+  Startup ──[load numpy 2s]──[load matplotlib 3s]──[render App]── TTI: ~6s
+
+Dengan lazy isolation:
+  Startup ──[render App + fallback]── TTI: ~1s
+                  │
+                  └──[load numpy 2s]───► Dashboard tampil
+                  └──[load matplotlib 3s]───► Chart tampil
+```
+
+### Prioritas Implementasi Strategi Optimasi
+
+| # | Strategi | Dampak | Kompleksitas | Prioritas |
+|---|---|---|---|---|
+| 1 | Router Pre-fetching | Tinggi — transisi halaman terasa instan | Rendah (~30 baris) | **P1** |
+| 2 | Heavy Library Chunking | Tinggi — TTI turun drastis | Tidak ada (pola penggunaan) | **P1** |
+| 3 | IntersectionObserver (`InView`) | Sedang — hemat CPU untuk long pages | Sedang (~80 baris) | **P2** |
+| 4 | Custom Import Finder (PEP 302) | Sangat Tinggi — network code-splitting | Tinggi (build system + runtime) | **P3** |
