@@ -1,4 +1,5 @@
 from collections.abc import Callable, Coroutine
+from io import StringIO
 from typing import Any, Protocol
 
 
@@ -50,6 +51,54 @@ class Fetch(Protocol):
         fetcher: Any = None,
         **kwargs: Any
     ) -> Coroutine[Any, Any, FetchResponse]: ...
+
+
+class XHRResponse(Protocol):
+    """
+    Protocol for the response object returned by pyxhr.
+    """
+    @property
+    def status_code(self) -> int: ...
+    
+    @property
+    def content(self) -> bytes: ...
+    
+    @property
+    def url(self) -> str: ...
+    
+    @property
+    def ok(self) -> bool: ...
+
+    @property
+    def text(self) -> str: ...
+
+    @property
+    def body(self) -> bytes: ...
+
+    @property
+    def headers(self) -> dict[str, str]: ...
+
+    def json(self, **kwargs: Any) -> Any: ...
+
+    def raise_for_status(self) -> None: ...
+
+
+class XHR(Protocol):
+    """
+    Protocol for the pyxhr module itself.
+    """
+    def get(self, url: str, **kwargs: Any) -> XHRResponse: ...
+    def post(self, url: str, **kwargs: Any) -> XHRResponse: ...
+    def put(self, url: str, **kwargs: Any) -> XHRResponse: ...
+    def patch(self, url: str, **kwargs: Any) -> XHRResponse: ...
+    def delete(self, url: str, **kwargs: Any) -> XHRResponse: ...
+    def options(self, url: str, **kwargs: Any) -> XHRResponse: ...
+    def head(self, url: str, **kwargs: Any) -> XHRResponse: ...
+
+
+class OpenUrl(Protocol):
+    """Protocol for the open_url function itself."""
+    def __call__(self, url: str) -> StringIO: ...
 
 
 class WebSocketAdapterProtocol(Protocol):

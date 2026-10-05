@@ -1,6 +1,8 @@
 """
 PyOn Framework
 """
+import pyon.runtime.finder  # noqa: F401
+
 from .core.app import App
 from .core.bus import EventEmitter
 from .core.component import BaseEvents, BaseProps, BaseState, Component

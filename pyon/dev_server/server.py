@@ -133,7 +133,18 @@ def _generate_loader_js() -> str:
     Generate loader.js dynamically based on the .py files in the project.
     Called every time the browser requests /loader.js.
     """
-    py_files = _collect_py_files()
+    all_py_files = _collect_py_files()
+    
+    # Hanya muat entry file (app.py), framework (pyon/), dan __init__.py ke dalam virtual FS.
+    # Berkas modul di dalam src/ akan diambil melalui PyonNetworkFinder secara dinamis.
+    py_files = [
+        f for f in all_py_files 
+        if not f.startswith("src/") or f.endswith("__init__.py")
+    ]
+
+    # debug
+    # py_files = all_py_files
+    
     files_json = json.dumps(py_files, indent=4)
 
     deps = _get_dependencies_from_toml()
@@ -571,6 +582,28 @@ async def handle_pyon_framework(
     return web.FileResponse(target)
 
 
+async def handle_pyon_modules(
+    request: web.Request,
+) -> web.Response | web.FileResponse:
+    """Serve dynamic modules (lazy loaded) from PROJECT_ROOT."""
+    rel_path = request.match_info.get("path", "")
+    target = (PROJECT_ROOT / rel_path).resolve()
+
+    # Security: prevent path traversal (../../etc) and limit strictly to src/ folder
+    try:
+        target.relative_to(PROJECT_ROOT / "src")
+    except ValueError:
+        return web.Response(status=403, text="Forbidden")
+
+    if not target.exists():
+        return web.Response(status=404, text="Module not found")
+
+    if target.is_dir():
+        return web.Response(status=406, text="Directory namespace")
+
+    return web.FileResponse(target)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -586,6 +619,7 @@ async def main() -> None:
     app.router.add_get("/pyon/{path:.+}", handle_pyon_framework)
     app.router.add_get("/packages/{filename}", handle_packages)
     app.router.add_get("/pyodide/{filename:.*}", handle_pyodide)
+    app.router.add_get("/pyon_modules/{path:.+}", handle_pyon_modules)
     app.router.add_get("/", handle_static)
     app.router.add_get("/{path:.+}", handle_static)
 
