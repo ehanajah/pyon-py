@@ -1,13 +1,13 @@
 from typing import ClassVar
 
 from .component import BaseEvents, BaseProps, BaseState, Component
-from .lazy import _LazyBase
+from .lazy import LazyBase
 from .vnode import VNode, h
 
 
 class SuspenseCaughtByBoundary(Exception):
     """Internal exception for the Suspense Caught By Boundary mechanism (stack unwinding)."""
-    def __init__(self, boundary_key: str, lazy_class: type[_LazyBase]):
+    def __init__(self, boundary_key: str, lazy_class: type[LazyBase]):
         self.boundary_key = boundary_key
         self.lazy_class = lazy_class
 
@@ -19,7 +19,7 @@ class SuspenseProps(BaseProps):
 class Suspense(Component[SuspenseProps, BaseState, BaseEvents]):
     """
     Boundary component that catches SuspensePending exceptions from 
-    _LazyBase components subclasses and render fallback UI while loading.
+    LazyBase components subclasses and render fallback UI while loading.
 
     Props:
         fallback: VNode | str - Fallback UI to render while loading.
@@ -31,9 +31,9 @@ class Suspense(Component[SuspenseProps, BaseState, BaseEvents]):
 
     def setup(self):
         self._state = {"pending": False}
-        self._pending_lazies: set[type[_LazyBase]] = set()
+        self._pending_lazies: set[type[LazyBase]] = set()
 
-    def _register_pending(self, lazy_class: type[_LazyBase]) -> None:
+    def _register_pending(self, lazy_class: type[LazyBase]) -> None:
         """Called by _expand_tree when SuspenseComponent is encountered."""
         if lazy_class not in self._pending_lazies:
             self._pending_lazies.add(lazy_class)

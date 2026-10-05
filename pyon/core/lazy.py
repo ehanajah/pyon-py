@@ -11,7 +11,7 @@ class SuspensePending(Exception):
         self.lazy_class = lazy_class
 
 
-class _LazyBase(Component):
+class LazyBase(Component):
     """Internal base class for lazy components."""
     _resolved: ClassVar[type | None] = None
     _loading: ClassVar[bool] = False
@@ -89,7 +89,7 @@ def lazy(loader: str | Callable, class_name: str | None = None):
 
     display_name = class_name or "LazyComponent"
 
-    LazyWrapper = type(display_name, (_LazyBase,), {
+    LazyWrapper = type(display_name, (LazyBase,), {
         "_resolved": None,
         "_loading": False,
         "_error": None,

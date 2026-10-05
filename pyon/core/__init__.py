@@ -20,7 +20,7 @@ from .differ import (
 )
 from .dom import DOMElement, DOMTextNode, Node
 from .events import Event
-from .lazy import lazy
+from .lazy import LazyBase, lazy
 from .suspense import Suspense
 from .utils import current_component, dispatch
 from .vnode import Props, VNode, h
@@ -36,6 +36,7 @@ __all__ = [
     "ErrorCaughtByBoundary",
     "Event",
     "EventEmitter",
+    "LazyBase",
     "Node",
     "Patch",
     "Props",
