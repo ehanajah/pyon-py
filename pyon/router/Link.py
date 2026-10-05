@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pyon.core import BaseProps, Component, h
+from pyon.core import BaseProps, Component, LazyBase, h
 from pyon.core.events import Event
 
 if TYPE_CHECKING:
@@ -26,6 +26,20 @@ class Link(Component[LinkProps]):
         is_now_active = self.router.is_active(self.props["to"])
         self.set_state({"is_active": is_now_active})
 
+    def _on_mouse_enter(self, _e) -> None:
+        target_route = self.router.resolve(self.props["to"])
+        if not target_route:
+            return
+            
+        comp = target_route["component"]
+
+        if (
+            comp 
+            and hasattr(comp, "_start_loading") 
+            and issubclass(comp, LazyBase)
+        ):
+            comp._start_loading()
+
     def on_mount(self) -> None:
         self.set_state({"is_active": self.router.is_active(self.props["to"])})
         self.router.subscribe(self._on_route_change)
@@ -48,5 +62,6 @@ class Link(Component[LinkProps]):
             "href": self.props["to"],
             "class": classes,
             "on_click": self._handle_click,
+            "on_mouse_enter": self._on_mouse_enter,
             **attrs
         }, self.props.get("children", []))

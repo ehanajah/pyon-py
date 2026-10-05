@@ -12,8 +12,10 @@ mock_js.window.location.search = ""
 
 mock_ffi = MagicMock()
 
-mock_browser = type("MockBrowser", (), {"js": mock_js, "ffi": mock_ffi})()
-sys.modules["pyon.browser"] = mock_browser
+import pyon.browser
+import sys
+sys.modules["pyon.browser"].js = mock_js
+sys.modules["pyon.browser"].ffi = mock_ffi
 
 # Import router setelah mock disuntikkan
 from pyon.router.utils import get_query_params, match_route

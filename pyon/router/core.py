@@ -2,18 +2,19 @@ from collections.abc import Callable
 from typing import Any, NotRequired, TypedDict
 
 from pyon.browser import ffi, js
+from pyon.core import Component, LazyBase
 
 from .utils import get_query_params
 
 
 class RouterInput(TypedDict):
     path: str
-    component: type
+    component: type[Component] | type[LazyBase]
     key: NotRequired[str]
 
 class RouteDef(TypedDict):
     path: str
-    component: type
+    component: type[Component] | type[LazyBase]
     key: str
 
 class Router:
@@ -90,4 +91,13 @@ class Router:
     def is_active(self, path: str) -> bool:
         """Check if a path is active in the router."""
         return self.current_path == path
-        
+
+    def resolve(self, full_path: str) -> RouteDef | None:
+        """Resolve a path to a route definition."""
+        path = full_path.split("?")[0]
+        for route in self.routes:
+            if route["path"] == path:
+                return route
+
+        return None
+    
